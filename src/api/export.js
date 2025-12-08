@@ -2,18 +2,18 @@
 const ProcessingAPI = require('./processing');
 const { invoiceToCSV } = require('../utils/csv-converter');
 const Reporting = require('../reports/reporting');
-const { PDFDocument, rgb } = require('pdf-lib');
+const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 
 // Initialize dependencies
 const processingAPI = new ProcessingAPI();
 const reporting = new Reporting();
 
 module.exports = (app) => {
-  // GET /api/export/:jobId?format=json|csv|pdf - Export job results
+  // GET /api/export/:jobId?format=json|csv|pdf&template=summary|detailed|financial - Export job results
   app.get('/api/export/:jobId', async (req, res) => {
     try {
       const { jobId } = req.params;
-      const { format = 'json' } = req.query;
+      const { format = 'json', template = 'detailed' } = req.query;
 
       // Validate jobId format
       if (!jobId || !jobId.startsWith('job_')) {
@@ -29,6 +29,15 @@ module.exports = (app) => {
         return res.status(400).json({
           error: 'Invalid format',
           message: `Format must be one of: ${validFormats.join(', ')}`
+        });
+      }
+
+      // Validate template for PDF format
+      const validTemplates = ['summary', 'detailed', 'financial'];
+      if (format === 'pdf' && !validTemplates.includes(template)) {
+        return res.status(400).json({
+          error: 'Invalid template',
+          message: `PDF template must be one of: ${validTemplates.join(', ')}`
         });
       }
 
@@ -89,7 +98,7 @@ module.exports = (app) => {
       // Extract invoice data for PDF generation (include all transformed results)
       const invoices = transformedResults;
 
-      if (transformedResults.length === 0 && errors.length === 0) {
+      if (transformedResults.length === 0) {
         return res.status(404).json({
           error: 'No results',
           message: 'No processing results found for export'
@@ -185,9 +194,9 @@ module.exports = (app) => {
               '' // processedAt not available in transformed results
             ];
 
-            if (result.success && invoice?.items && invoice.items.length > 0) {
+            if (result.success && result.items && result.items.length > 0) {
               // Create row for each item
-              invoice.items.forEach((item, index) => {
+              result.items.forEach((item, index) => {
                 const itemRow = [...baseRow];
                 itemRow[5] = item.description || ''; // Item Description
                 itemRow[6] = item.quantity || ''; // Item Quantity
@@ -216,8 +225,9 @@ module.exports = (app) => {
           break;
 
         case 'pdf':
-          // Generate PDF report using pdf-lib
-          content = await generatePDFReport(transformedResults, jobId, summary, errors);
+          // Generate enhanced PDF report
+          const { template = 'detailed' } = req.query;
+          content = await generateEnhancedPDFReport(transformedResults, jobId, summary, errors, template);
           contentType = 'application/pdf';
           break;
 
@@ -259,199 +269,377 @@ module.exports = (app) => {
 };
 
 /**
- * Generate a PDF report from invoice data
+ * Generate an enhanced PDF report from invoice data with professional layout
  * @param {Array} invoices - Array of transformed invoice results
  * @param {string} jobId - The job ID for the report
  * @param {Object} summary - Processing summary
  * @param {Array} errors - Array of processing errors
+ * @param {string} template - Report template ('summary', 'detailed', 'financial')
  * @returns {Buffer} PDF content as a buffer
  */
-async function generatePDFReport(invoices, jobId, summary, errors) {
+async function generateEnhancedPDFReport(invoices, jobId, summary, errors, template = 'detailed') {
   const pdfDoc = await PDFDocument.create();
-  let page = pdfDoc.addPage();
-  const { width, height } = page.getSize();
-  const fontSize = 12;
-  const titleFontSize = 18;
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // Color scheme
+  const colors = {
+    primary: rgb(0.2, 0.4, 0.8),      // Blue
+    secondary: rgb(0.8, 0.4, 0.2),    // Orange
+    success: rgb(0.2, 0.8, 0.4),      // Green
+    warning: rgb(0.8, 0.8, 0.2),      // Yellow
+    danger: rgb(0.8, 0.2, 0.2),       // Red
+    text: rgb(0.2, 0.2, 0.2),         // Dark gray
+    textLight: rgb(0.6, 0.6, 0.6),    // Light gray
+    background: rgb(0.95, 0.95, 0.95) // Light gray background
+  };
+
+  let currentPage = null;
+  let yPosition = 0;
   const margin = 50;
-  let yPosition = height - margin;
+  const pageWidth = 595;  // A4 width in points
+  const pageHeight = 842; // A4 height in points
+  const contentWidth = pageWidth - 2 * margin;
 
-  // Helper function to add text with word wrapping
-  function addText(text, x, y, size = fontSize, maxWidth = width - 2 * margin) {
-    const words = text.split(' ');
-    let line = '';
-    let currentY = y;
+  // Helper functions
+  function addNewPage() {
+    currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+    yPosition = pageHeight - margin;
 
-    for (const word of words) {
-      const testLine = line + (line ? ' ' : '') + word;
-      const textWidth = testLine.length * (size * 0.6); // Rough estimate
+    // Add header
+    drawHeader();
+    yPosition -= 60; // Space after header
 
-      if (textWidth > maxWidth && line) {
-        page.drawText(line, { x, y: currentY, size, color: rgb(0, 0, 0) });
-        line = word;
-        currentY -= size + 2;
-      } else {
-        line = testLine;
-      }
-    }
-
-    if (line) {
-      page.drawText(line, { x, y: currentY, size, color: rgb(0, 0, 0) });
-      currentY -= size + 2;
-    }
-
-    return currentY;
+    return currentPage;
   }
 
-  // Helper function to add a new page if needed
+  function drawHeader() {
+    const headerY = pageHeight - 30;
+
+    // Company title
+    currentPage.drawText('Invoice Processing Report', {
+      x: margin,
+      y: headerY,
+      size: 16,
+      font: helveticaBold,
+      color: colors.primary
+    });
+
+    // Job info and date
+    const timestamp = new Date().toLocaleString();
+    currentPage.drawText(`Job: ${jobId} | Generated: ${timestamp}`, {
+      x: margin,
+      y: headerY - 20,
+      size: 8,
+      font: helvetica,
+      color: colors.textLight
+    });
+
+    // Page number
+    const pageNum = pdfDoc.getPageCount();
+    currentPage.drawText(`Page ${pageNum}`, {
+      x: pageWidth - margin - 50,
+      y: headerY - 20,
+      size: 8,
+      font: helvetica,
+      color: colors.textLight
+    });
+  }
+
+  function drawFooter() {
+    const footerY = margin + 20;
+    currentPage.drawText('Generated by Invoice Parser - Professional Invoice Processing Solution', {
+      x: margin,
+      y: footerY,
+      size: 7,
+      font: helvetica,
+      color: colors.textLight
+    });
+  }
+
   function checkPageSpace(neededSpace) {
-    if (yPosition - neededSpace < margin) {
-      page = pdfDoc.addPage();
-      yPosition = height - margin;
+    if (yPosition - neededSpace < margin + 50) { // +50 for footer space
+      drawFooter();
+      addNewPage();
       return true;
     }
     return false;
   }
 
-  // Title
-  yPosition = addText('Invoice Processing Report', margin, yPosition, titleFontSize);
-  yPosition -= 10;
+  function drawText(text, x, y, options = {}) {
+    const {
+      font = helvetica,
+      size = 10,
+      color = colors.text,
+      maxWidth = contentWidth,
+      align = 'left'
+    } = options;
 
-  // Report metadata
-  const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
-  yPosition = addText(`Job ID: ${jobId}`, margin, yPosition);
-  yPosition = addText(`Generated: ${timestamp}`, margin, yPosition);
-  yPosition -= 20;
+    let actualX = x;
+    if (align === 'center') {
+      const textWidth = font.widthOfTextAtSize(text, size);
+      actualX = x - textWidth / 2;
+    } else if (align === 'right') {
+      const textWidth = font.widthOfTextAtSize(text, size);
+      actualX = x - textWidth;
+    }
 
-  // Summary section
-  yPosition = addText('Summary', margin, yPosition, 14);
-  yPosition -= 5;
+    currentPage.drawText(text, {
+      x: actualX,
+      y,
+      size,
+      font,
+      color,
+      maxWidth
+    });
+  }
 
-  yPosition = addText(`Total Files: ${summary.totalFiles}`, margin + 20, yPosition);
-  yPosition = addText(`Successfully Processed: ${summary.processedFiles}`, margin + 20, yPosition);
-  yPosition = addText(`Failed: ${summary.failedFiles}`, margin + 20, yPosition);
-  yPosition = addText(`Success Rate: ${summary.successRate}%`, margin + 20, yPosition);
-  yPosition -= 20;
+  function drawTable(headers, rows, x, startY, options = {}) {
+    const { colWidths = [], rowHeight = 20, headerColor = colors.primary, alternateRowColor = false } = options;
+    let currentY = startY;
 
-  // Financial summary if we have invoices with amounts
-  const invoicesWithAmounts = invoices.filter(inv => inv.totals?.total != null);
-  if (invoicesWithAmounts.length > 0) {
-    const totalAmount = invoicesWithAmounts.reduce((sum, inv) => {
-      const amount = typeof inv.totals.total === 'number' ? inv.totals.total : 0;
-      return sum + amount;
-    }, 0);
+    // Calculate column widths if not provided
+    const numCols = headers.length;
+    const defaultColWidth = contentWidth / numCols;
+    const actualColWidths = colWidths.length === numCols ? colWidths :
+      headers.map(() => defaultColWidth);
 
-    const averageAmount = totalAmount / invoicesWithAmounts.length;
+    // Draw header
+    let currentX = x;
+    for (let i = 0; i < headers.length; i++) {
+      // Header background
+      currentPage.drawRectangle({
+        x: currentX,
+        y: currentY - rowHeight + 2,
+        width: actualColWidths[i],
+        height: rowHeight,
+        color: headerColor,
+        opacity: 0.1
+      });
 
-    yPosition = addText('Financial Summary', margin, yPosition, 14);
-    yPosition -= 5;
-    yPosition = addText(`Total Invoice Amount: $${totalAmount.toFixed(2)}`, margin + 20, yPosition);
-    yPosition = addText(`Average Invoice Amount: $${averageAmount.toFixed(2)}`, margin + 20, yPosition);
-    yPosition = addText(`Invoices with amounts: ${invoicesWithAmounts.length}/${invoices.length}`, margin + 20, yPosition);
+      drawText(headers[i], currentX + 5, currentY - 5, {
+        font: helveticaBold,
+        size: 9,
+        color: colors.text
+      });
+      currentX += actualColWidths[i];
+    }
+    currentY -= rowHeight;
+
+    // Draw rows
+    rows.forEach((row, rowIndex) => {
+      checkPageSpace(rowHeight);
+
+      if (alternateRowColor && rowIndex % 2 === 1) {
+        currentPage.drawRectangle({
+          x,
+          y: currentY - rowHeight + 2,
+          width: contentWidth,
+          height: rowHeight,
+          color: colors.background
+        });
+      }
+
+      currentX = x;
+      for (let i = 0; i < row.length; i++) {
+        drawText(row[i] || '', currentX + 5, currentY - 5, {
+          size: 8,
+          color: colors.text
+        });
+        currentX += actualColWidths[i];
+      }
+      currentY -= rowHeight;
+    });
+
+    return currentY;
+  }
+
+  function drawBarChart(data, x, y, width, height, options = {}) {
+    const { title = '', color = colors.primary, maxValue = Math.max(...data.map(d => d.value)) } = options;
+
+    // Title
+    drawText(title, x + width / 2, y + height + 10, {
+      font: helveticaBold,
+      size: 11,
+      align: 'center'
+    });
+
+    const barWidth = width / data.length * 0.8;
+    const barSpacing = width / data.length * 0.2;
+    const chartHeight = height - 40; // Space for labels
+
+    data.forEach((item, index) => {
+      const barHeight = (item.value / maxValue) * chartHeight;
+      const barX = x + index * (barWidth + barSpacing);
+      const barY = y + 30;
+
+      // Draw bar
+      currentPage.drawRectangle({
+        x: barX,
+        y: barY,
+        width: barWidth,
+        height: barHeight,
+        color
+      });
+
+      // Value label on bar
+      if (barHeight > 15) {
+        drawText(item.value.toString(), barX + barWidth / 2, barY + barHeight - 10, {
+          size: 7,
+          color: rgb(1, 1, 1),
+          align: 'center'
+        });
+      }
+
+      // Label below bar
+      drawText(item.label, barX + barWidth / 2, barY - 15, {
+        size: 7,
+        align: 'center'
+      });
+    });
+  }
+
+  // Start generating the PDF
+  addNewPage();
+
+  // Executive Summary Section
+  if (template !== 'financial') {
+    drawText('Executive Summary', margin, yPosition, {
+      font: helveticaBold,
+      size: 14,
+      color: colors.primary
+    });
+    yPosition -= 30;
+
+    // Key metrics in a nice layout
+    const metrics = [
+      { label: 'Total Files Processed', value: summary.totalFiles, color: colors.primary },
+      { label: 'Successful Processing', value: summary.processedFiles, color: colors.success },
+      { label: 'Processing Failures', value: summary.failedFiles, color: colors.danger },
+      { label: 'Success Rate', value: `${summary.successRate}%`, color: summary.successRate >= 80 ? colors.success : colors.warning }
+    ];
+
+    const metricWidth = contentWidth / 2;
+    let metricY = yPosition;
+
+    metrics.forEach((metric, index) => {
+      const col = index % 2;
+      const row = Math.floor(index / 2);
+      const x = margin + col * metricWidth;
+
+      if (col === 0 && row > 0) metricY -= 40;
+
+      // Metric box
+      currentPage.drawRectangle({
+        x,
+        y: metricY - 35,
+        width: metricWidth - 10,
+        height: 30,
+        color: metric.color,
+        opacity: 0.1,
+        borderColor: metric.color,
+        borderWidth: 1
+      });
+
+      drawText(metric.label, x + 10, metricY - 10, {
+        font: helveticaBold,
+        size: 9
+      });
+      drawText(metric.value.toString(), x + 10, metricY - 25, {
+        font: helvetica,
+        size: 12,
+        color: metric.color
+      });
+    });
+
+    yPosition -= 90;
+  }
+
+  // Financial Summary with Chart
+  if (template !== 'summary' && invoices.length > 0) {
+    checkPageSpace(200);
+
+    drawText('Financial Overview', margin, yPosition, {
+      font: helveticaBold,
+      size: 14,
+      color: colors.primary
+    });
+    yPosition -= 30;
+
+    const invoicesWithAmounts = invoices.filter(inv => inv.totals?.total != null && typeof inv.totals.total === 'number');
+    if (invoicesWithAmounts.length > 0) {
+      const totalAmount = invoicesWithAmounts.reduce((sum, inv) => sum + inv.totals.total, 0);
+      const averageAmount = totalAmount / invoicesWithAmounts.length;
+
+      // Financial metrics
+      const financialData = [
+        { label: 'Total Value', value: totalAmount },
+        { label: 'Average Value', value: averageAmount },
+        { label: 'Invoices', value: invoicesWithAmounts.length }
+      ];
+
+      drawBarChart(financialData, margin, yPosition - 150, contentWidth, 120, {
+        title: 'Financial Summary',
+        color: colors.secondary
+      });
+
+      yPosition -= 180;
+    }
+  }
+
+  // Detailed Invoice Table
+  if (template === 'detailed' && invoices.length > 0) {
+    checkPageSpace(100);
+
+    drawText('Invoice Details', margin, yPosition, {
+      font: helveticaBold,
+      size: 14,
+      color: colors.primary
+    });
+    yPosition -= 30;
+
+    const tableHeaders = ['Order #', 'Date', 'Customer', 'Items', 'Total', 'Status'];
+    const tableRows = invoices.slice(0, 20).map(invoice => [
+      invoice.orderNumber || 'N/A',
+      invoice.orderDate || 'N/A',
+      invoice.customerInfo?.name || 'N/A',
+      invoice.items?.length?.toString() || '0',
+      invoice.totals?.total && typeof invoice.totals.total === 'number' ? `$${invoice.totals.total.toFixed(2)}` : 'N/A',
+      invoice.validationStatus === 'valid' ? '✓ Valid' : '⚠ Issues'
+    ]);
+
+    yPosition = drawTable(tableHeaders, tableRows, margin, yPosition, {
+      colWidths: [80, 70, 120, 50, 70, 60],
+      alternateRowColor: true
+    });
     yPosition -= 20;
   }
 
-  // Invoice details
-  if (invoices.length > 0) {
-    checkPageSpace(50);
-    yPosition = addText('Invoice Details', margin, yPosition, 14);
-    yPosition -= 10;
+  // Processing Errors
+  if (errors.length > 0 && template !== 'financial') {
+    checkPageSpace(80);
 
-    for (const invoice of invoices) {
-      checkPageSpace(80); // Check if we need space for invoice details
+    drawText('Processing Errors', margin, yPosition, {
+      font: helveticaBold,
+      size: 14,
+      color: colors.danger
+    });
+    yPosition -= 30;
 
-      // Invoice header
-      const filename = invoice.filename || 'Unknown';
-      yPosition = addText(`Invoice: ${filename}`, margin, yPosition, 12);
-      yPosition -= 5;
+    const errorHeaders = ['File', 'Error'];
+    const errorRows = errors.slice(0, 10).map(error => [
+      error.filename,
+      error.error || 'Unknown error'
+    ]);
 
-      // Basic info
-      if (invoice.orderNumber) {
-        yPosition = addText(`Order Number: ${invoice.orderNumber}`, margin + 20, yPosition);
-      }
-      if (invoice.orderDate) {
-        yPosition = addText(`Order Date: ${invoice.orderDate}`, margin + 20, yPosition);
-      }
-
-      // Customer info
-      if (invoice.customerInfo?.name) {
-        yPosition = addText(`Customer: ${invoice.customerInfo.name}`, margin + 20, yPosition);
-      }
-      if (invoice.customerInfo?.email) {
-        yPosition = addText(`Email: ${invoice.customerInfo.email}`, margin + 20, yPosition);
-      }
-
-      // Validation status
-      yPosition = addText(`Status: ${invoice.validationStatus}`, margin + 20, yPosition);
-      if (invoice.validationErrors && invoice.validationErrors.length > 0) {
-        yPosition = addText(`Issues: ${invoice.validationErrors.join(', ')}`, margin + 20, yPosition);
-      }
-
-      // Financial info
-      const currency = invoice.currency || 'USD';
-      if (invoice.totals?.total != null) {
-        yPosition = addText(`Total: ${currency} ${invoice.totals.total.toFixed(2)}`, margin + 20, yPosition);
-      }
-
-      if (invoice.totals?.subtotal != null) {
-        yPosition = addText(`Subtotal: ${currency} ${invoice.totals.subtotal.toFixed(2)}`, margin + 20, yPosition);
-      }
-      if (invoice.totals?.tax != null) {
-        yPosition = addText(`Tax: ${currency} ${invoice.totals.tax.toFixed(2)}`, margin + 20, yPosition);
-      }
-      if (invoice.totals?.shipping != null) {
-        yPosition = addText(`Shipping: ${currency} ${invoice.totals.shipping.toFixed(2)}`, margin + 20, yPosition);
-      }
-
-      // Items
-      if (invoice.items && invoice.items.length > 0) {
-        checkPageSpace(30);
-        yPosition = addText('Items:', margin + 20, yPosition);
-        yPosition -= 5;
-
-        for (const item of invoice.items.slice(0, 5)) { // Limit to first 5 items to avoid overflow
-          checkPageSpace(20);
-          const itemDesc = item.description || 'No description';
-          const itemQty = item.quantity || 1;
-          const itemPrice = typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2) :
-                           typeof item.price === 'number' ? item.price.toFixed(2) : 'N/A';
-          yPosition = addText(`• ${itemDesc} (Qty: ${itemQty}, Price: ${currency} ${itemPrice})`,
-                             margin + 40, yPosition, 10);
-        }
-
-        if (invoice.items.length > 5) {
-          yPosition = addText(`... and ${invoice.items.length - 5} more items`, margin + 40, yPosition, 10);
-        }
-      }
-
-      yPosition -= 15; // Space between invoices
-    }
+    yPosition = drawTable(errorHeaders, errorRows, margin, yPosition, {
+      colWidths: [200, contentWidth - 200],
+      headerColor: colors.danger
+    });
   }
 
-  // Failed files section
-  if (errors.length > 0) {
-    checkPageSpace(50);
-    yPosition = addText('Failed Files', margin, yPosition, 14);
-    yPosition -= 10;
-
-    for (const failed of errors.slice(0, 10)) { // Limit to first 10 failures
-      checkPageSpace(20);
-      yPosition = addText(`${failed.filename}: ${failed.error || 'Unknown error'}`, margin + 20, yPosition, 10);
-    }
-
-    if (errors.length > 10) {
-      yPosition = addText(`... and ${errors.length - 10} more failures`, margin + 20, yPosition, 10);
-    }
-  }
-
-  // Footer
-  const finalPage = pdfDoc.getPages()[pdfDoc.getPageCount() - 1];
-  const finalY = margin + 20;
-  finalPage.drawText(`Report generated by Invoice Parser - Job ${jobId}`, {
-    x: margin,
-    y: finalY,
-    size: 8,
-    color: rgb(0.5, 0.5, 0.5)
-  });
+  // Final footer
+  drawFooter();
 
   const pdfBytes = await pdfDoc.save();
   return Buffer.from(pdfBytes);

@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased min-h-screen bg-gray-50 dark:bg-gray-900`}>
+      <body className={`${inter.variable} font-sans antialiased min-h-screen bg-white dark:bg-gray-900`}>
         <SettingsLoader />
         <ThemeProvider>
           <div className="min-h-screen flex flex-col">

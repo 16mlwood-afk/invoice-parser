@@ -87,7 +87,7 @@ class APIServer {
           'POST /api/status/:jobId/cancel',
           'GET /api/results',
           'GET /api/results/:jobId',
-          'GET /api/export/:jobId?format=json|csv|pdf',
+          'GET /api/export/:jobId?format=json|csv|pdf&template=summary|detailed|financial',
           'DELETE /api/cleanup/:jobId',
           'GET /api/settings',
           'PUT /api/settings',

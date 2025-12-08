@@ -7,12 +7,14 @@ import { ProgressBar } from './progress-bar';
 import { ErrorDetails } from './error-details';
 import { StatusBadge } from './status-badge';
 import { estimateCompletionTime, formatEstimatedCompletion } from '@/utils/time-estimation';
-import { useState } from 'react';
+import { useCompletionToast } from '@/components/ui/toast';
+import { useState, useEffect } from 'react';
 
 export function ProcessingDashboard() {
   const {
     currentJobId,
     jobStatus,
+    jobDisplayInfo,
     isLoading,
     error,
     isActive,
@@ -20,12 +22,23 @@ export function ProcessingDashboard() {
     fetchJobStatus,
     lastUpdated,
     cancelJob,
+    clearJobManually,
+    shouldShowJob,
   } = useProcessingStore();
+
+  const showCompletionToast = useCompletionToast();
 
   const progressPercentage = jobStatus?.progress?.percentage || 0;
 
   const [isManualRefresh, setIsManualRefresh] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+
+  // Show toast when job is auto-cleared
+  useEffect(() => {
+    if (jobDisplayInfo.displayState === 'removed' && currentJobId) {
+      showCompletionToast(currentJobId, `Job ${currentJobId.slice(-8)}`);
+    }
+  }, [jobDisplayInfo.displayState, currentJobId, showCompletionToast]);
 
   const handleManualRefresh = async () => {
     if (currentJobId) {
@@ -134,8 +147,13 @@ export function ProcessingDashboard() {
     );
   }
 
+  // Don't render if job should not be shown (auto-cleared)
+  if (!shouldShowJob) {
+    return null;
+  }
+
   return (
-    <div className="space-y-8">
+    <div className={`space-y-8 ${jobDisplayInfo.displayState === 'fading' ? 'job-fading' : ''}`}>
       {/* Job Header */}
       <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8" aria-labelledby="job-header">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -206,7 +224,31 @@ export function ProcessingDashboard() {
                 </button>
               )}
 
-              {jobStatus && <StatusBadge status={jobStatus.status} />}
+              {jobStatus && (
+                <div className="flex items-center space-x-3">
+                  <StatusBadge status={jobStatus.status} />
+
+                  {/* Countdown and dismiss for completed jobs */}
+                  {jobDisplayInfo.displayState === 'completing' && jobDisplayInfo.countdownSeconds && (
+                    <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300" role="timer" aria-live="polite">
+                      <span>Auto-clearing in</span>
+                      <span className="font-mono font-bold text-primary" aria-label={`${jobDisplayInfo.countdownSeconds} seconds remaining`}>
+                        {jobDisplayInfo.countdownSeconds}s
+                      </span>
+                      <button
+                        onClick={clearJobManually}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                        aria-label="Dismiss job now"
+                        title="Dismiss job now"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -39,8 +39,8 @@ export function UISettingsTab() {
   const { setTheme } = useTheme();
 
   const handleThemeChange = (theme: UISettings['theme']) => {
+    // Use theme provider's setTheme which handles both theme application and settings store update
     setTheme(theme);
-    updateUISettings({ theme });
   };
 
   const handleLanguageChange = (language: UISettings['language']) => {

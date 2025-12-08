@@ -30,8 +30,8 @@ export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProvid
   const { settings, updateUISettings } = useSettingsStore();
   const [mounted, setMounted] = useState(false);
 
-  // Initialize theme from settings store (should be hydrated from localStorage)
-  const [theme, setThemeState] = useState<Theme>(() => settings.ui.theme || defaultTheme);
+  // Initialize theme from settings store (zustand persist should hydrate immediately)
+  const [theme, setThemeState] = useState<Theme>(() => settings.ui?.theme || defaultTheme);
 
   // Calculate resolved theme (light or dark)
   const getResolvedTheme = (themeValue: Theme): 'light' | 'dark' => {
@@ -42,14 +42,14 @@ export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProvid
     return themeValue;
   };
 
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => 
-    getResolvedTheme(getInitialTheme())
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() =>
+    getResolvedTheme(theme)
   );
 
   // Set theme and update settings store
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    // Update settings store (this will persist via zustand)
+    // Update settings store (this will persist via zustand and sync to server)
     updateUISettings({ theme: newTheme });
   };
 
@@ -58,40 +58,39 @@ export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProvid
     setMounted(true);
   }, []);
 
-  // Update theme when settings change
+  // Update theme when settings change (only after initial mount to avoid loops)
   useEffect(() => {
-    if (settings.ui.theme !== theme) {
+    if (mounted && settings.ui.theme !== theme && settings.ui.theme) {
       setThemeState(settings.ui.theme);
     }
-  }, [settings.ui.theme, theme]);
+  }, [settings.ui.theme, theme, mounted]);
 
   // Apply theme to DOM
   useEffect(() => {
-    if (!mounted) return;
-
     const root = window.document.documentElement;
     const resolved = getResolvedTheme(theme);
-    
+
     setResolvedTheme(resolved);
 
-    // Apply or remove dark class
+    // Apply or remove dark class - ensure clean state
     if (resolved === 'dark') {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
-  }, [theme, mounted]);
+  }, [theme]);
 
   // Listen for system theme changes when in system mode
   useEffect(() => {
     if (theme !== 'system') return;
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
+
     const handleChange = () => {
       const resolved = mediaQuery.matches ? 'dark' : 'light';
       setResolvedTheme(resolved);
-      
+
+      // Update DOM for system theme changes
       const root = window.document.documentElement;
       if (resolved === 'dark') {
         root.classList.add('dark');
@@ -99,6 +98,9 @@ export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProvid
         root.classList.remove('dark');
       }
     };
+
+    // Set initial system theme
+    handleChange();
 
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);

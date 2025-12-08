@@ -255,3 +255,19 @@ body {
 .notification-exit {
   animation: fadeIn 0.3s ease-out reverse;
 }
+
+/* Job auto-clear animations */
+.job-fading {
+  animation: fadeOutJob 0.5s ease-in-out forwards;
+}
+
+@keyframes fadeOutJob {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
