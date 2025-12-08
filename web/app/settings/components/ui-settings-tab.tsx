@@ -39,9 +39,7 @@ export function UISettingsTab() {
   const { setTheme } = useTheme();
 
   const handleThemeChange = (theme: UISettings['theme']) => {
-    // Map 'system' to 'auto' for the theme provider
-    const mappedTheme = theme === 'system' ? 'auto' : theme;
-    setTheme(mappedTheme as any);
+    setTheme(theme);
     updateUISettings({ theme });
   };
 

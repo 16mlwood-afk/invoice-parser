@@ -796,6 +796,24 @@ Zahlungsmethode: Kreditkarte ****5678
   generateRecoverySuggestions(categorizedError, partialData) {
     return this.errorRecovery.generateRecoverySuggestions(categorizedError, partialData);
   }
+
+  /**
+   * Validate invoice data using comprehensive validation rules
+   * @param {Object} invoice - Invoice data to validate
+   * @returns {Object} Validation result with score, errors, and warnings
+   */
+  validateInvoiceData(invoice) {
+    return this.validation.validateInvoiceData(invoice);
+  }
+
+  /**
+   * Validate and format JSON output using schema validation
+   * @param {Object} invoice - Invoice data to validate
+   * @returns {Object|null} Validated invoice data or null if invalid
+   */
+  validateJsonOutput(invoice) {
+    return this.validation.validateJsonOutput(invoice);
+  }
 }
 
 module.exports = AmazonInvoiceParser;

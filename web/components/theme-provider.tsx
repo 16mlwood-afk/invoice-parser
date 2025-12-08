@@ -27,26 +27,11 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProviderProps) {
-  const { settings, updateUISettings, loadSettings } = useSettingsStore();
+  const { settings, updateUISettings } = useSettingsStore();
   const [mounted, setMounted] = useState(false);
 
-  // Get initial theme from settings or localStorage
-  const getInitialTheme = (): Theme => {
-    if (typeof window === 'undefined') return defaultTheme;
-    
-    try {
-      const stored = localStorage.getItem('theme');
-      if (stored && ['light', 'dark', 'system'].includes(stored)) {
-        return stored as Theme;
-      }
-    } catch (e) {
-      console.error('Error reading theme from localStorage:', e);
-    }
-    
-    return defaultTheme;
-  };
-
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+  // Initialize theme from settings store (should be hydrated from localStorage)
+  const [theme, setThemeState] = useState<Theme>(() => settings.ui.theme || defaultTheme);
 
   // Calculate resolved theme (light or dark)
   const getResolvedTheme = (themeValue: Theme): 'light' | 'dark' => {
@@ -61,32 +46,24 @@ export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProvid
     getResolvedTheme(getInitialTheme())
   );
 
-  // Set theme and persist
+  // Set theme and update settings store
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    
-    try {
-      localStorage.setItem('theme', newTheme);
-    } catch (e) {
-      console.error('Error saving theme to localStorage:', e);
-    }
-    
-    // Update settings store (async, but don't wait)
+    // Update settings store (this will persist via zustand)
     updateUISettings({ theme: newTheme });
   };
 
-  // Load settings on mount
+  // Set mounted when component mounts
   useEffect(() => {
-    loadSettings().then(() => {
-      // If settings have a different theme, use it
-      const settingsTheme = settings.ui.theme;
-      if (settingsTheme && settingsTheme !== theme) {
-        setThemeState(settingsTheme);
-      }
-    }).catch(console.error);
-    
     setMounted(true);
-  }, []); // Only run once on mount
+  }, []);
+
+  // Update theme when settings change
+  useEffect(() => {
+    if (settings.ui.theme !== theme) {
+      setThemeState(settings.ui.theme);
+    }
+  }, [settings.ui.theme, theme]);
 
   // Apply theme to DOM
   useEffect(() => {

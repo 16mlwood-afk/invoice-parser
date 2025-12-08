@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/components';
 import { Header } from '@/components/layout';
+import { SettingsLoader } from '@/components/settings-loader';
 import './globals.css';
 import React from 'react';
 
@@ -24,6 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased min-h-screen bg-gray-50 dark:bg-gray-900`}>
+        <SettingsLoader />
         <ThemeProvider>
           <div className="min-h-screen flex flex-col">
             {/* Global Header */}
