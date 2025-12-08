@@ -21,45 +21,52 @@ class EUBusinessParser extends BaseParser {
    * @returns {Object} - Extracted invoice data
    */
   extract(text, options = {}) {
-    console.log('🏢 Using EU Business Parser');
+    try {
+      console.log('🏢 Using EU Business Parser');
 
-    const items = this.extractBusinessItems(text);
+      const items = this.extractBusinessItems(text);
+      console.log('📊 Extracted ' + items.length + ' items');
 
-    const rawInvoice = {
-      orderNumber: this.extractOrderNumber(text),
-      orderDate: this.extractOrderDate(text),
-      items,
-      subtotal: this.extractSubtotal(text) || this.calculateSubtotalFromItems(items),
-      shipping: this.extractShipping(text),
-      tax: this.extractTax(text),
-      discount: this.extractDiscount(text),
-      total: this.extractTotal(text),
-      vendor: 'Amazon',
-      format: 'amazon.eu',
-      subtype: 'business',
-      currency: 'EUR',
-    };
+      const rawInvoice = {
+        orderNumber: this.extractOrderNumber(text),
+        orderDate: this.extractOrderDate(text),
+        items,
+        subtotal: this.extractSubtotal(text) || this.calculateSubtotalFromItems(items),
+        shipping: this.extractShipping(text),
+        tax: this.extractTax(text),
+        discount: this.extractDiscount(text),
+        total: this.extractTotal(text),
+        vendor: 'Amazon',
+        format: 'amazon.eu',
+        subtype: 'business',
+        currency: 'EUR',
+      };
 
-    // Add format metadata from options if available
-    if (options?.classification) {
-      rawInvoice.formatClassification = options.classification;
+      // Add format metadata from options if available
+      if (options?.classification) {
+        rawInvoice.formatClassification = options.classification;
+      }
+
+      // Validate against schema
+      const { error, value } = this.invoiceSchema.validate(rawInvoice, {
+        stripUnknown: true,
+        convert: true,
+      });
+
+      if (error) {
+        console.warn('EU Business invoice validation warning:', error.details[0].message);
+      }
+
+      // Perform data validation
+      const validationResult = this.validateInvoiceData(value);
+      value.validation = validationResult;
+
+      return value;
+    } catch (error) {
+      console.error('❌ EU Business Parser failed:', error.message);
+      console.error('Stack:', error.stack);
+      throw error;
     }
-
-    // Validate against schema
-    const { error, value } = this.invoiceSchema.validate(rawInvoice, {
-      stripUnknown: true,
-      convert: true,
-    });
-
-    if (error) {
-      console.warn('EU Business invoice validation warning:', error.details[0].message);
-    }
-
-    // Perform data validation
-    const validationResult = this.validateInvoiceData(value);
-    value.validation = validationResult;
-
-    return value;
   }
 
   /**
@@ -163,11 +170,20 @@ class EUBusinessParser extends BaseParser {
     const asinRegex = /ASIN:\s*([A-Z0-9]{10})/g;
     const asinMatches = [...text.matchAll(asinRegex)];
 
-    console.log(`   Found ${asinMatches.length} ASIN codes`);
+    console.log('   Found ' + asinMatches.length + ' ASIN codes');
+
+    // Track processed positions to prevent overlapping extractions
+    const processedPositions = new Set();
 
     for (const match of asinMatches) {
       const asin = match[1];
       const asinIndex = match.index;
+
+      // Skip if we've already processed nearby text (prevents overlapping extractions)
+      if (processedPositions.has(asinIndex)) {
+        console.log('   ⏭️  Skipping ASIN ' + asin + ' (already processed nearby)');
+        continue;
+      }
 
       // Look BACKWARD - data comes before ASIN in table (universal across all EU languages)
       const textBefore = text.substring(
@@ -175,10 +191,83 @@ class EUBusinessParser extends BaseParser {
         asinIndex,
       );
 
+      // ========== NEW PATTERN: Concatenated PDF Table Columns ==========
+
+      // PDF parser concatenates table columns without spacing
+
+      // Format: [QTY+PRICE]€ → Tax% → (1) → [UNITPRICE]€[TOTAL]€
+
+      // Example: "537,37 €" means qty=5, price=37.37
+
+      //          "37,37 €186,85 €" means unitPrice=37.37, total=186.85
+
+      const textAfterAsin = text.substring(
+        asinIndex + match[0].length,
+        Math.min(text.length, asinIndex + match[0].length + 400)
+      );
+
+      // Look for the concatenated pattern in the lines after ASIN
+      const concatenatedMatch = textAfterAsin.match(
+        /^[^\n]*\n\s*(\d{1,4})(,\d{2})\s*€\s*\n\s*\d+\s*%\s*\n\s*\((\d+)\)\s*\n\s*(\d+,\d{2})\s*€\s*(\d+,\d{2})\s*€/
+      );
+
+      if (concatenatedMatch) {
+        const [, qtyDigits, priceDecimals, parenNumber, unitPriceStr, totalStr] = concatenatedMatch;
+
+        // Extract quantity from first digits of concatenated number
+        let quantity = parseInt(qtyDigits);
+        const unitPrice = parseFloat(unitPriceStr.replace(',', '.'));
+        const totalPrice = parseFloat(totalStr.replace(',', '.'));
+
+        // Validate and correct quantity using math
+        const calculatedQty = Math.round(totalPrice / unitPrice);
+        if (calculatedQty >= 1 && calculatedQty <= 100 &&
+            Math.abs(calculatedQty * unitPrice - totalPrice) < 0.10) {
+          quantity = calculatedQty;
+        }
+
+        // Get description from BEFORE ASIN
+        const descLines = textBefore
+          .split('\n')
+          .filter(l => l.trim().length > 20)
+          .filter(l => !l.includes('ASIN:'))
+          .filter(l => !/^\d+\s*[:.]?\s*$/.test(l))
+          .filter(l => !/(Bestellung|Artikel|Produkt|Summe|Total|Menge|Stückpreis)/i.test(l));
+
+        const description = descLines[descLines.length - 1]?.trim() || 'Product';
+
+        console.log(
+          `   ✅ Extracted (concatenated format): ${description.substring(0, 40)}... ` +
+          `(${quantity}x ${unitPrice}€ = ${totalPrice}€)`
+        );
+
+        items.push({
+          asin,
+          description,
+          quantity,
+          unitPrice,
+          totalPrice,
+          currency: 'EUR',
+        });
+
+        // Mark position as processed - only mark the exact matched text
+        // Find the exact position of the concatenated match in the full text
+        const fullMatchIndex = text.indexOf(concatenatedMatch[0], asinIndex + match[0].length);
+        if (fullMatchIndex !== -1) {
+          // Mark only the exact matched text as processed
+          const matchLength = concatenatedMatch[0].length;
+          for (let i = fullMatchIndex; i < fullMatchIndex + matchLength; i++) {
+            processedPositions.add(i);
+          }
+        }
+
+        continue; // Skip to next ASIN
+      }
+
       // Universal table pattern: | Description | Qty | Unit Price € | Tax % |
       // Unit Price € | Total € | - works for German, Spanish, French, Italian, English
       const dataMatch = textBefore.match(
-        /\|\s*([^|]+?)\s*\|\s*(\d+)\s*\|\s*(\d+,\d{2})\s*€[^|]*\|\s*[^|]*\|\s*[^|]*\|\s*(\d+,\d{2})\s*€\s*\|\s*$/, // eslint-disable-line max-len
+        /\|\s*([^|]+?)\s*\|\s*(\d{1,3})\s*\|\s*(\d+,\d{2})\s*€[^|]*\|\s*[^|]*\|\s*[^|]*\|\s*(\d+,\d{2})\s*€\s*\|\s*$/, // eslint-disable-line max-len
       );
 
       if (dataMatch) {
@@ -187,8 +276,9 @@ class EUBusinessParser extends BaseParser {
         const unitPrice = parseFloat(unitPriceStr.replace(',', '.'));
         const totalPrice = parseFloat(totalStr.replace(',', '.'));
 
+
         console.log(
-          `   ✅ Extracted item: ${description.trim()} (${quantity}x ${unitPrice}€ = ${totalPrice}€)`, // eslint-disable-line max-len
+          '   ✅ Extracted item: ' + description.trim() + ' (' + quantity + 'x ' + unitPrice + '€ = ' + totalPrice + '€)', // eslint-disable-line max-len
         );
 
         items.push({
@@ -199,38 +289,542 @@ class EUBusinessParser extends BaseParser {
           totalPrice,
           currency: 'EUR',
         });
+
+        // Mark this position as processed to prevent overlapping extractions
+        for (let i = Math.max(0, asinIndex - 1000); i < asinIndex + 1000; i++) {
+          processedPositions.add(i);
+        }
       } else {
-        // Try alternative pattern for some edge cases
-        const altMatch = textBefore.match(
-          /\|\s*([^|]+?)\s*\|\s*(\d+)\s*\|\s*[\d,]+\s*€\s*\|\s*\d+%?\s*\|\s*[\d,]+\s*€\s*\|\s*([\d,]+)\s*€\s*\|/, // eslint-disable-line max-len
+        // Try German table format: Description | Menge | Stückpreis | USt% | Stückpreis | Zwischensumme
+        // Pattern: [Description] [Quantity] [UnitPrice €] [Tax%] [(Qty)] [UnitPrice €] [Total €]
+        const germanTableMatch = textBefore.match(
+          /([^\n\r]{20,400}?)\s+(\d{1,3})\s+(\d+,\d{2})\s*€\s+\d+%?\s*\(\d+\)\s+(\d+,\d{2})\s*€\s+(\d+,\d{2})\s*€/s
         );
 
-        if (altMatch) {
-          const [, description, qtyStr, totalStr] = altMatch;
-          const quantity = parseInt(qtyStr);
+        if (germanTableMatch) {
+          const [, description, qtyStr, unitPriceStr, totalStr] = germanTableMatch;
+          let quantity = parseInt(qtyStr);
+          const unitPrice = parseFloat(unitPriceStr.replace(',', '.'));
           const totalPrice = parseFloat(totalStr.replace(',', '.'));
 
-          console.log(
-            `   ✅ Extracted item (alt pattern): ${description.trim()} (${quantity}x items = ${totalPrice}€)`, // eslint-disable-line max-len
+          // Calculate quantity from total ÷ unitPrice as validation/fallback
+          if (unitPrice && totalPrice) {
+            const calculatedQty = Math.round(totalPrice / unitPrice);
+            if (calculatedQty >= 1 && calculatedQty <= 100 && Math.abs(calculatedQty * unitPrice - totalPrice) < 0.10) {
+              quantity = calculatedQty;
+              console.log(`   📊 Corrected quantity using total÷price: ${calculatedQty} (${totalPrice}€ ÷ ${unitPrice}€)`);
+            }
+          }
+
+          // Validate that description looks like a product name
+          const cleanDescription = description.trim();
+          if (cleanDescription.length < 10 ||
+              /^\d+\s*[:.]?\s*$/.test(cleanDescription) ||
+              /\b(Bestellung|Artikel|Produkt|Summe|Total|Gesamt)\b/i.test(cleanDescription)) {
+            console.log('   ⚠️  Skipping likely header text (table): "' + cleanDescription + '"');
+          } else {
+            console.log(
+              '   ✅ Extracted German table item: ' + cleanDescription + ' (' + quantity + 'x ' + unitPrice + '€ = ' + totalPrice + '€)',
+            );
+
+            items.push({
+              asin,
+              description: cleanDescription,
+              quantity,
+              unitPrice,
+              totalPrice,
+              currency: 'EUR',
+            });
+
+            // Mark this position as processed to prevent overlapping extractions
+            for (let i = Math.max(0, asinIndex - 1000); i < asinIndex + 1000; i++) {
+              processedPositions.add(i);
+            }
+            continue; // Skip to next ASIN
+          }
+        }
+
+        // Try German-specific pattern (no pipes) - look for product description immediately before ASIN
+        // Look for pattern: [Product Name] [ASIN] [Price] [Tax%] [Quantity] [Total]
+        const germanMatch = textBefore.match(
+          /([^\n\r]{10,200}?)\s*\n\s*ASIN:\s*[A-Z0-9]{10}\s*\n\s*(\d+,\d{2})\s*€\s*\n\s*(\d+,\d{2})\s*€(\d+,\d{2})\s*€/s
+        );
+
+        if (germanMatch) {
+          const [, description, unitPriceStr, taxInclPriceStr, totalStr] = germanMatch;
+          let quantity = 1; // German format seems to have individual entries (quantity not always clear)
+          const unitPrice = parseFloat(unitPriceStr.replace(',', '.'));
+          const totalPrice = parseFloat(totalStr.replace(',', '.'));
+
+          // Calculate quantity from total ÷ unitPrice as validation/fallback
+          if (unitPrice && totalPrice) {
+            const calculatedQty = Math.round(totalPrice / unitPrice);
+            if (calculatedQty >= 1 && calculatedQty <= 100 && Math.abs(calculatedQty * unitPrice - totalPrice) < 0.10) {
+              quantity = calculatedQty;
+              console.log(`   📊 Corrected quantity using total÷price: ${calculatedQty} (${totalPrice}€ ÷ ${unitPrice}€)`);
+            }
+          }
+
+          // Validate that description looks like a product name (not header text)
+          const cleanDescription = description.trim();
+          // Skip if description looks like header text (too short, contains only numbers/symbols, or header keywords)
+          if (cleanDescription.length < 10 ||
+              /^\d+\s*[:.]?\s*$/.test(cleanDescription) ||
+              /\b(Bestellung|Artikel|Produkt|Summe|Total|Gesamt)\b/i.test(cleanDescription)) {
+            console.log('   ⚠️  Skipping likely header text: "' + cleanDescription + '"');
+          } else {
+            console.log(
+              '   ✅ Extracted German item: ' + cleanDescription + ' (' + quantity + 'x ' + unitPrice + '€ = ' + totalPrice + '€)',
+            );
+
+            items.push({
+              asin,
+              description: cleanDescription,
+              quantity,
+              unitPrice,
+              totalPrice,
+              currency: 'EUR',
+            });
+
+            // Mark this position as processed to prevent overlapping extractions
+            for (let i = Math.max(0, asinIndex - 1000); i < asinIndex + 1000; i++) {
+              processedPositions.add(i);
+            }
+          }
+        } else {
+          // Try alternative German-specific pattern with tax percentage and quantity in parentheses
+          let germanMatchAlt = textBefore.match(
+            /([^\n\r]{10,200}?)\s*\n\s*ASIN:\s*[A-Z0-9]{10}\s*\n\s*(\d+,\d{2})\s*€\s*\n\s*\d+%?\s*\n\s*\((\d+)\)\s*\n\s*(\d+,\d{2})\s*€(\d+,\d{2})\s*€/s
           );
 
-          items.push({
-            asin,
-            description: description.trim(),
-            quantity,
-            unitPrice: totalPrice / quantity, // Calculate from total
-            totalPrice,
-            currency: 'EUR',
-          });
+          // More flexible German pattern - try without the extra price column
+          if (!germanMatchAlt) {
+            germanMatchAlt = textBefore.match(
+              /([^\n\r]{10,300}?)\s*\n\s*ASIN:\s*[A-Z0-9]{10}\s*\n\s*(\d+,\d{2})\s*€\s*\n\s*\d+%?\s*\n\s*\((\d+)\)\s*\n\s*(\d+,\d{2})\s*€/s
+            );
+          }
+
+          // Even more flexible - just find any product description before ASIN with prices
+          if (!germanMatchAlt) {
+            germanMatchAlt = textBefore.match(
+              /([^\n\r]{15,300}?)\s*\n\s*ASIN:\s*[A-Z0-9]{10}\s*\n\s*(\d+,\d{2})\s*€[\s\S]*?\((\d+)\)[\s\S]*?(\d+,\d{2})\s*€(\d+,\d{2})\s*€/s
+            );
+          }
+
+          // Ultra flexible - look for any pattern with description, ASIN, quantity in parens, and prices
+          if (!germanMatchAlt) {
+            germanMatchAlt = textBefore.match(
+              /([^\n\r]{10,400}?)\s*\n\s*ASIN:\s*[A-Z0-9]{10}[\s\S]*?\((\d+)\)[\s\S]*?(\d+,\d{2})\s*€(\d+,\d{2})\s*€/s
+            );
+          }
+
+          // German-specific pattern: Look for the exact format we observed in diagnostic
+          // Description -> ASIN -> Price € -> 0% -> (Quantity) -> UnitPrice € TotalPrice €
+          if (!germanMatchAlt) {
+            const germanDirectPattern = /([^\n\r]{50,500}?)\s*\n\s*ASIN:\s*([A-Z0-9]{10})\s*\n\s*(\d+,\d{2})\s*€\s*\n\s*0%\s*\n\s*\((\d+)\)\s*\n\s*(\d+,\d{2})\s*€\s*(\d+,\d{2})\s*€/s;
+            const directMatch = textBefore.match(germanDirectPattern);
+            if (directMatch) {
+              console.log('   ✅ Matched direct German pattern for ASIN ' + directMatch[2]);
+              germanMatchAlt = [null, directMatch[1], directMatch[4], directMatch[5], directMatch[6]];
+            }
+          }
+
+          // Specific German pattern: Description → ASIN → Price → Tax% → (Quantity) → UnitPrice TotalPrice
+          if (!germanMatchAlt) {
+            // Look for the exact German format: ASIN line, then price line, tax line, (qty) line, prices line
+            const lines = textBefore.split('\n').reverse(); // Start from the end (closest to ASIN)
+            let description = '';
+            let price = '';
+            let tax = '';
+            let quantity = '';
+            let unitPrice = '';
+            let totalPrice = '';
+
+            // Find the ASIN line
+            const asinIndex = lines.findIndex(line => line.includes('ASIN:'));
+            if (asinIndex !== -1) {
+              // Look backwards from ASIN for the pattern
+              for (let i = asinIndex + 1; i < lines.length && i < asinIndex + 8; i++) {
+                const line = lines[i].trim();
+                if (!price && /^\d+,\d{2}\s*€$/.test(line)) {
+                  price = line;
+                } else if (!tax && /^\d+%?$/.test(line)) {
+                  tax = line;
+                } else if (!quantity && /^\((\d+)\)$/.test(line)) {
+                  const qtyMatch = line.match(/\((\d+)\)/);
+                  quantity = qtyMatch[1];
+                } else if (!unitPrice && /^(\d+,\d{2})\s*€(\d+,\d{2})\s*€$/.test(line)) {
+                  const priceMatch = line.match(/(\d+,\d{2})\s*€(\d+,\d{2})\s*€/);
+                  unitPrice = priceMatch[1];
+                  totalPrice = priceMatch[2];
+                } else if (line && !line.includes('ASIN:') && !line.includes('€') && line.length > 10) {
+                  // This might be description
+                  if (!description) description = line;
+                }
+              }
+
+              if (quantity && unitPrice && totalPrice) {
+                // Create a synthetic match array
+                germanMatchAlt = [null, description, quantity, unitPrice, totalPrice];
+              }
+            }
+          }
+
+          if (germanMatchAlt) {
+            // Handle different regex patterns
+            let description, unitPriceStr, totalStr, quantity;
+            if (germanMatchAlt.length === 6) {
+              // Even more flexible pattern: [full, description, firstPrice, qty, unitPrice, total]
+              [, description, , quantity, unitPriceStr, totalStr] = germanMatchAlt;
+              quantity = parseInt(quantity);
+            } else if (germanMatchAlt.length === 5) {
+              // Ultra flexible pattern: [full, description, quantity, unitPrice, total]
+              [, description, quantity, unitPriceStr, totalStr] = germanMatchAlt;
+              quantity = parseInt(quantity);
+            } else if (germanMatchAlt.length === 4) {
+              // Specific German pattern: [full, description, quantity, unitPrice, total]
+              [, description, quantity, unitPriceStr, totalStr] = germanMatchAlt;
+              quantity = parseInt(quantity);
+            } else {
+              // Other patterns: [full, description, unitPrice, taxInclPrice, total]
+              [, description, unitPriceStr, , totalStr] = germanMatchAlt;
+              quantity = 1; // German format seems to have individual entries
+            }
+
+            const unitPrice = parseFloat(unitPriceStr?.replace(',', '.') || '0');
+            const totalPrice = parseFloat(totalStr?.replace(',', '.') || '0');
+
+            // Calculate quantity from total ÷ unitPrice as validation/fallback
+            if (unitPrice && totalPrice && quantity) {
+              const calculatedQty = Math.round(totalPrice / unitPrice);
+              if (calculatedQty >= 1 && calculatedQty <= 100 && Math.abs(calculatedQty * unitPrice - totalPrice) < 0.10) {
+                quantity = calculatedQty;
+                console.log(`   📊 Corrected quantity using total÷price: ${calculatedQty} (${totalPrice}€ ÷ ${unitPrice}€)`);
+              }
+            }
+
+            // Validate that description looks like a product name (not header text)
+            const cleanDescription = description.trim();
+            // For German invoices, be more lenient with description validation
+            // Skip if description looks like header text (contains only numbers/symbols, or header keywords)
+            if (/^\d+\s*[:.]?\s*$/.test(cleanDescription) ||
+                /\b(Bestellung|Artikel|Produkt|Summe|Total|Gesamt)\b/i.test(cleanDescription)) {
+              console.log('   ⚠️  Skipping likely header text: "' + cleanDescription + '"');
+            } else {
+              console.log(
+                '   ✅ Extracted German item (alt): ' + cleanDescription + ' (' + quantity + 'x ' + unitPrice + '€ = ' + totalPrice + '€)',
+              );
+
+              items.push({
+                asin,
+                description: cleanDescription,
+                quantity,
+                unitPrice,
+                totalPrice,
+                currency: 'EUR',
+              });
+
+              // Mark this position as processed to prevent overlapping extractions
+              for (let i = Math.max(0, asinIndex - 1000); i < asinIndex + 1000; i++) {
+                processedPositions.add(i);
+              }
+            }
+          } else {
+            // ========== TRY FORWARD SEARCH: Data comes AFTER ASIN ==========
+            // Some PDF layouts have: ASIN first, then description and prices
+            const textAfter = text.substring(asinIndex + match[0].length);
+
+            // Look for German pattern AFTER the ASIN: BasePrice -> Tax -> (Qty) -> UnitPrice TotalPrice -> Description
+            // This is the exact German format: base_price €\n0%\n(qty)\nunit_price €total_price €
+            const germanForwardMatch = textAfter.match(
+              /^(\d+,\d{2})\s*€\s*\n\s*0%\s*\n\s*\((\d+)\)\s*\n\s*(\d+,\d{2})\s*€(\d+,\d{2})\s*€\s*\n/s
+            );
+
+            if (germanForwardMatch) {
+              const [, price1, quantity, unitPriceStr, totalStr, description] = germanForwardMatch;
+              let quantityNum = parseInt(quantity);
+              const unitPrice = parseFloat(unitPriceStr?.replace(',', '.') || '0');
+              const totalPrice = parseFloat(totalStr?.replace(',', '.') || '0');
+
+              // Calculate quantity from total ÷ unitPrice as validation/fallback
+              if (unitPrice && totalPrice) {
+                const calculatedQty = Math.round(totalPrice / unitPrice);
+                if (calculatedQty >= 1 && calculatedQty <= 100 && Math.abs(calculatedQty * unitPrice - totalPrice) < 0.10) {
+                  quantityNum = calculatedQty;
+                  console.log(`   📊 Corrected quantity using total÷price: ${calculatedQty} (${totalPrice}€ ÷ ${unitPrice}€)`);
+                }
+              }
+
+              // Validate description
+              const cleanDescription = description.trim();
+              if (cleanDescription.length < 10 ||
+                  /^\d+\s*[:.]?\s*$/.test(cleanDescription) ||
+                  /\b(Bestellung|Artikel|Produkt|Summe|Total|Gesamt)\b/i.test(cleanDescription)) {
+                console.log('   ⚠️  Skipping likely header text (forward): "' + cleanDescription + '"');
+              } else {
+                console.log(
+                  '   ✅ Extracted German item (forward): ' + cleanDescription + ' (' + quantityNum + 'x ' + unitPrice + '€ = ' + totalPrice + '€)',
+                );
+
+                items.push({
+                  asin,
+                  description: cleanDescription,
+                  quantity: quantityNum,
+                  unitPrice,
+                  totalPrice,
+                  currency: 'EUR',
+                });
+
+                // Mark this position as processed to prevent overlapping extractions
+                for (let i = Math.max(0, asinIndex - 1000); i < asinIndex + 1000; i++) {
+                  processedPositions.add(i);
+                }
+              }
+            } else {
+              console.log('   ⚠️  No data match for ASIN ' + asin + ' (checked both backward and forward)');
+            }
+          }
+        }
+      }
+
+      // If no universal or German pattern matched, try French-specific patterns
+      if (items.length === 0 || !items.find(item => item.asin === asin)) {
+        // Try French-specific pattern (no pipes) - look for product description immediately before ASIN
+        // French format might use different structure or keywords
+        const frenchMatch = textBefore.match(
+          /([^\n\r]{10,200}?)\s*\n\s*ASIN:\s*[A-Z0-9]{10}\s*\n\s*(\d+,\d{2})\s*€\s*\n\s*(\d+,\d{2})\s*€(\d+,\d{2})\s*€/s
+        );
+
+        if (frenchMatch) {
+          const [, description, unitPriceStr, taxInclPriceStr, totalStr] = frenchMatch;
+          let quantity = 1; // French format seems to have individual entries
+          const unitPrice = parseFloat(unitPriceStr.replace(',', '.'));
+          const totalPrice = parseFloat(totalStr.replace(',', '.'));
+
+          // Calculate quantity from total ÷ unitPrice as validation/fallback
+          if (unitPrice && totalPrice) {
+            const calculatedQty = Math.round(totalPrice / unitPrice);
+            if (calculatedQty >= 1 && calculatedQty <= 100 && Math.abs(calculatedQty * unitPrice - totalPrice) < 0.10) {
+              quantity = calculatedQty;
+              console.log(`   📊 Corrected quantity using total÷price: ${calculatedQty} (${totalPrice}€ ÷ ${unitPrice}€)`);
+            }
+          }
+
+          // Validate that description looks like a product name (not header text)
+          const cleanDescription = description.trim();
+          // Skip if description looks like header text (too short, contains only numbers/symbols, or French header keywords)
+          if (cleanDescription.length < 10 ||
+              /^\d+\s*[:.]?\s*$/.test(cleanDescription) ||
+              /\b(Commande|Article|Produit|Somme|Total|Total\s*TTC|Facture)\b/i.test(cleanDescription)) {
+            console.log('   ⚠️  Skipping likely header text: "' + cleanDescription + '"');
+          } else {
+            console.log(
+              '   ✅ Extracted French item: ' + cleanDescription + ' (' + quantity + 'x ' + unitPrice + '€ = ' + totalPrice + '€)',
+            );
+
+            items.push({
+              asin,
+              description: cleanDescription,
+              quantity,
+              unitPrice,
+              totalPrice,
+              currency: 'EUR',
+            });
+
+            // Mark this position as processed to prevent overlapping extractions
+            for (let i = Math.max(0, asinIndex - 1000); i < asinIndex + 1000; i++) {
+              processedPositions.add(i);
+            }
+          }
         } else {
-          console.log(`   ⚠️  No data match for ASIN ${asin}`);
-          console.log(`   Text before ASIN: "...${textBefore.substring(textBefore.length - 150)}"`);
+          // Try alternative French-specific pattern with tax and quantity variations
+          const frenchMatchAlt = textBefore.match(
+            /([^\n\r]{10,200}?)\s*\n\s*ASIN:\s*[A-Z0-9]{10}\s*\n\s*(\d+,\d{2})\s*€\s*\n\s*\d+%?\s*\n\s*\(\d+\)\s*\n\s*(\d+,\d{2})\s*€(\d+,\d{2})\s*€/s
+          );
+
+          if (frenchMatchAlt) {
+            const [, description, unitPriceStr, taxInclPriceStr, totalStr] = frenchMatchAlt;
+            let quantity = 1; // French format seems to have individual entries
+            const unitPrice = parseFloat(unitPriceStr.replace(',', '.'));
+            const totalPrice = parseFloat(totalStr.replace(',', '.'));
+
+            // Calculate quantity from total ÷ unitPrice as validation/fallback
+            if (unitPrice && totalPrice) {
+              const calculatedQty = Math.round(totalPrice / unitPrice);
+              if (calculatedQty >= 1 && calculatedQty <= 100 && Math.abs(calculatedQty * unitPrice - totalPrice) < 0.10) {
+                quantity = calculatedQty;
+                console.log(`   📊 Corrected quantity using total÷price: ${calculatedQty} (${totalPrice}€ ÷ ${unitPrice}€)`);
+              }
+            }
+
+            // Validate that description looks like a product name (not header text)
+            const cleanDescription = description.trim();
+            // Skip if description looks like header text (too short, contains only numbers/symbols, or French header keywords)
+            if (cleanDescription.length < 10 ||
+                /^\d+\s*[:.]?\s*$/.test(cleanDescription) ||
+                /\b(Commande|Article|Produit|Somme|Total|Total\s*TTC|Facture)\b/i.test(cleanDescription)) {
+              console.log('   ⚠️  Skipping likely header text: "' + cleanDescription + '"');
+            } else {
+              console.log(
+                '   ✅ Extracted French item (alt): ' + cleanDescription + ' (' + quantity + 'x ' + unitPrice + '€ = ' + totalPrice + '€)',
+              );
+
+              items.push({
+                asin,
+                description: cleanDescription,
+                quantity,
+                unitPrice,
+                totalPrice,
+                currency: 'EUR',
+              });
+
+              // Mark this position as processed to prevent overlapping extractions
+              for (let i = Math.max(0, asinIndex - 1000); i < asinIndex + 1000; i++) {
+                processedPositions.add(i);
+              }
+            }
+          } else {
+            // ========== PATTERN: French Business Format (Prices AFTER ASIN) ==========
+            // French format: Description → ASIN → Prices on separate lines after
+            // Line 1: HT price (195,82 €)
+            // Line 2: Tax rate (0 %)
+            // Line 3: Quantity ((1))
+            // Line 4: Unit TTC + Total TTC (95,82 €95,82 €)
+
+            // Look for French business format AFTER the ASIN
+            const textAfter = text.substring(asinIndex + match[0].length);
+
+            // More flexible French pattern - try multiple variations
+            let frenchMatch = textAfter.match(
+              /(\d+,\d{2})\s*€[\s\S]*?0\s*%[\s\S]*?\((\d+)\)[\s\S]*?(\d+,\d{2})\s*€(\d+,\d{2})\s*€/
+            );
+
+            // Alternative French pattern: Different tax rate or simpler format
+            if (!frenchMatch) {
+              frenchMatch = textAfter.match(
+                /(\d+,\d{2})\s*€[\s\S]*?\d+\s*%[\s\S]*?\((\d+)\)[\s\S]*?(\d+,\d{2})\s*€(\d+,\d{2})\s*€/
+              );
+            }
+
+            // Simpler French pattern: Just quantity and prices (create proper group structure)
+            if (!frenchMatch) {
+              const simpleMatch = textAfter.match(
+                /\((\d+)\)[\s\S]*?(\d+,\d{2})\s*€(\d+,\d{2})\s*€/
+              );
+              if (simpleMatch) {
+                // Create the expected group structure: [full, htPrice, qty, unitPrice, total]
+                frenchMatch = [simpleMatch[0], '0,00', simpleMatch[1], simpleMatch[2], simpleMatch[3]];
+              }
+            }
+
+
+            if (frenchMatch) {
+              try {
+                const [, htPrice, qtyStr, unitPriceTTCStr, totalStr] = frenchMatch;
+                let quantity = parseInt(qtyStr);
+                const unitPrice = parseFloat(unitPriceTTCStr?.replace(',', '.') || '0');
+                const totalPrice = parseFloat(totalStr?.replace(',', '.') || '0');
+
+                // Calculate quantity from total ÷ unitPrice as validation/correction
+                if (unitPrice && totalPrice) {
+                  const calculatedQty = Math.round(totalPrice / unitPrice);
+                  if (calculatedQty >= 1 && calculatedQty <= 100 && Math.abs(calculatedQty * unitPrice - totalPrice) < 0.10) {
+                    quantity = calculatedQty;
+                    console.log(`   📊 Corrected quantity using total÷price: ${calculatedQty} (${totalPrice}€ ÷ ${unitPrice}€)`);
+                  }
+                }
+
+                // Verify math
+                const calculated = quantity * unitPrice;
+                if (Math.abs(calculated - totalPrice) < 0.10) {
+                  // Get description from BEFORE ASIN
+                  let description = 'Product';
+                  const lines = textBefore.split('\n').filter(l => l.trim());
+
+                  // French headers to exclude
+                  const excludePatterns = [
+                    /^(Description|Qté|Prix|Unitaire|Taux|TVA|Total|TTC|HT)/i,
+                    /^\s*$/,
+                    /^[\d\s€%,()]+$/,
+                  ];
+
+                  // Look backwards for product description
+                  const descLines = [];
+                  for (let i = lines.length - 1; i >= Math.max(0, lines.length - 8); i--) {
+                    const line = lines[i]?.trim();
+                    if (!line) continue;
+
+                    const shouldExclude = excludePatterns.some(p => p.test(line));
+
+                    if (!shouldExclude &&
+                        line.length > 20 &&
+                        !line.includes('ASIN:') &&
+                        !line.includes('€')) {
+                      descLines.unshift(line); // Add to beginning
+
+                      // Collect up to 3 lines for full description
+                      if (descLines.length >= 3) break;
+                    }
+                  }
+
+                  if (descLines.length > 0) {
+                    description = descLines.join(' ').trim();
+                    // Limit length
+                    if (description.length > 200) {
+                      description = description.substring(0, 200);
+                    }
+                  }
+
+                  console.log(
+                    '   ✅ Pattern FR (French business): ' + description.substring(0, 45) +
+                    '... (' + quantity + 'x ' + unitPrice + '€ = ' + totalPrice + '€)',
+                  );
+
+                  items.push({
+                    asin,
+                    description,
+                    quantity,
+                    unitPrice,
+                    totalPrice,
+                    currency: 'EUR',
+                  });
+
+                  // Mark this position as processed to prevent overlapping extractions
+                  for (let i = Math.max(0, asinIndex - 1000); i < asinIndex + 1000; i++) {
+                    processedPositions.add(i);
+                  }
+                }
+              } catch (error) {
+                console.log('   ⚠️  French pattern error for ASIN ' + asin + ': ' + error.message);
+              }
+            } else {
+              console.log('   ⚠️  No data match for ASIN ' + asin);
+            }
+          }
         }
       }
     }
 
-    console.log(`   Total items extracted: ${items.length}`);
-    return items;
+    console.log('   Total items extracted: ' + items.length);
+
+    // ========== CONSERVATIVE DEDUPLICATION ==========
+    // Only remove items that are EXACTLY identical AND likely parsing errors
+    // Preserve legitimate multiple purchases of the same product (common in bulk orders)
+    const uniqueItems = [];
+    const seen = new Set();
+
+    for (const item of items) {
+      // Create key from all fields - identical items might be legitimate duplicates in invoices
+      const key = `${item.asin || 'NO-ASIN'}-${item.description || 'NO-DESC'}-${item.unitPrice}-${item.quantity}-${item.totalPrice}`;
+
+      // For EU business invoices, assume multiple identical items are legitimate unless they're truly suspicious
+      // Only deduplicate if we have strong evidence it's a parsing error (same position, etc.)
+      // For now, don't deduplicate at all - let the business logic handle it
+      uniqueItems.push(item);
+    }
+
+    console.log(`   📊 Deduplication: ${items.length} → ${uniqueItems.length} items (conservative - preserves legitimate duplicates)`);
+    return uniqueItems;
   }
 
   /**

@@ -246,13 +246,34 @@ class FormatClassifier {
       /Firma/,                        // Company field
       /USt-IdNr/,                     // VAT number field (business)
       /Steuernummer/,                 // Tax number field (business)
+      /\bGmbH\b/i,                    // German business entity (word boundary)
+      /\bAG\b/,                       // German stock corporation (exact match)
+      /\bUG\b/i,                      // German business form (word boundary)
+      /\be\.V\.\b/i,                  // German association (word boundary)
+      /\bKGaA\b/i,                    // German business form (word boundary)
+      /Dirección comercial/,          // Business address (Spanish)
+      /NIF sujeto de IVA/,            // VAT number field (Spanish)
+      /Adresse (professionnelle|commerciale)/, // Business address (French)
+      /Numéro de TVA/,                // VAT number (French)
+      /TVA\s+[A-Z]{2}\d/,             // VAT number pattern (EU format)
+      /Facture\s+à/,                  // "Invoice to" (French business)
+      /Entreprise/,                   // Company (French)
+      /Société/,                      // Company/Society (French)
+      /S\.A\.R\.L/,                   // French business entity
+      /S\.A\.S/,                      // French business entity
+      /IVA\s+ES/,                     // Spanish VAT
+      /TVA\s+FR/,                     // French VAT
+      /IVA\s+IT/,                     // Italian VAT
+      /Partita IVA/,                  // Italian VAT number
+      /P\.?I\.?\s+\d/,                // Italian VAT abbreviation
+      /società/i,                     // Company (Italian)
+      /azienda/i                      // Business (Italian)
+    ];
+
+    // Polish business entity patterns that should NOT count when part of Amazon registration
+    const polishBusinessPatterns = [
       /SP\.\s*Z\s*O\.O\./,           // Polish business entity
       /ODDZIAŁ\s+W\s+POLSCE/,        // Polish branch
-      /GmbH/i,                        // German business entity
-      /AG/i,                          // German stock corporation
-      /UG/i,                          // German business form
-      /e\.V\./i,                      // German association
-      /KGaA/i                         // German business form
     ];
 
     const consumerIndicators = [
@@ -268,6 +289,13 @@ class FormatClassifier {
     ];
 
     let businessScore = businessIndicators.filter(p => p.test(text)).length;
+
+    // Add Polish patterns only if they appear in business context (not Amazon registration)
+    const hasPolishBusinessInContext = polishBusinessPatterns.some(pattern => {
+      // Only count if Polish pattern appears WITHOUT Amazon registration context
+      return pattern.test(text) && !/Amazon EU S\.à r\.l\.,.*SP\. Z O\.O\. ODDZIAŁ W POLSCE/i.test(text);
+    });
+    if (hasPolishBusinessInContext) businessScore += 1;
     let consumerScore = consumerIndicators.filter(p => p.test(text)).length;
 
     // Add German-specific logic

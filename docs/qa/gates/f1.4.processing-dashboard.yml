@@ -1,0 +1,257 @@
+---
+qa_gate_id: "f1.4.processing-dashboard"
+story_id: "f1.4"
+title: "F1.4 Processing Dashboard QA Gate"
+description: "Comprehensive QA verification for real-time processing dashboard with monitoring and control features"
+
+acceptance_criteria:
+  # Core Functionality (1.4.1-1.4.5)
+  - id: "1.4.1"
+    description: "Real-time processing queue display with file names and status"
+    test_type: ["functional", "ui", "integration"]
+    automated: true
+    manual: true
+    priority: "high"
+
+  - id: "1.4.2"
+    description: "Progress bars for individual files and overall batch completion"
+    test_type: ["ui", "functional"]
+    automated: true
+    manual: true
+    priority: "high"
+
+  - id: "1.4.3"
+    description: "Expandable error details for failed processing attempts"
+    test_type: ["ui", "functional", "accessibility"]
+    automated: true
+    manual: true
+    priority: "high"
+
+  - id: "1.4.4"
+    description: "Estimated completion time calculations"
+    test_type: ["functional", "performance"]
+    automated: true
+    manual: false
+    priority: "medium"
+
+  - id: "1.4.5"
+    description: "Pause/cancel options for long-running batches"
+    test_type: ["functional", "ui"]
+    automated: true
+    manual: true
+    priority: "medium"
+
+  # Integration Requirements (IV1-IV3)
+  - id: "IV1"
+    description: "Status monitoring uses API endpoints without impacting CLI performance"
+    test_type: ["integration", "performance"]
+    automated: true
+    manual: false
+    priority: "high"
+
+  - id: "IV2"
+    description: "Progress calculations work with existing parsing time characteristics"
+    test_type: ["functional", "performance"]
+    automated: true
+    manual: false
+    priority: "medium"
+
+  - id: "IV3"
+    description: "Error display maintains consistency with CLI error reporting"
+    test_type: ["ui", "functional"]
+    automated: true
+    manual: true
+    priority: "medium"
+
+testing_checklist:
+  # Automated Tests
+  automated_tests:
+    - component: "ProcessingDashboard"
+      tests:
+        - "renders empty state when no job ID"
+        - "displays job information and progress"
+        - "handles cancel job confirmation"
+        - "shows connection status indicators"
+        - "integrates with processing store"
+
+    - component: "ProcessingQueue"
+      tests:
+        - "renders empty state for no files"
+        - "displays files in desktop table format"
+        - "displays files in mobile card format"
+        - "handles sorting by all columns"
+        - "shows error indicators for failed files"
+        - "truncates long filenames appropriately"
+
+    - component: "ProgressBar"
+      tests:
+        - "renders with correct progress percentage"
+        - "clamps values between 0-100"
+        - "handles indeterminate state"
+        - "applies correct size variants"
+        - "includes proper ARIA attributes"
+
+    - component: "StatusBadge"
+      tests:
+        - "renders all status types correctly"
+        - "applies appropriate color schemes"
+        - "handles size variants"
+        - "includes status icons"
+
+    - component: "ErrorDetails"
+      tests:
+        - "categorizes errors by type"
+        - "displays expandable error groups"
+        - "provides actionable suggestions"
+        - "handles multiple files per error type"
+
+    - component: "DashboardErrorBoundary"
+      tests:
+        - "catches and displays component errors"
+        - "provides error recovery options"
+        - "logs errors appropriately"
+
+    - component: "ProcessingStore"
+      tests:
+        - "manages job status state correctly"
+        - "handles API polling with backoff"
+        - "calculates progress percentages"
+        - "manages error states"
+
+    - component: "ProcessingApi"
+      tests:
+        - "fetches job status successfully"
+        - "handles API errors gracefully"
+        - "cancels jobs through API"
+        - "includes proper error handling"
+
+    - component: "TimeEstimation"
+      tests:
+        - "calculates completion time from historical data"
+        - "handles cases with no historical data"
+        - "formats time remaining correctly"
+        - "provides buffer for variability"
+
+  # Manual Tests
+  manual_tests:
+    - category: "User Experience"
+      tests:
+        - "Dashboard loads correctly with jobId parameter"
+        - "Real-time updates occur every 2-5 seconds"
+        - "Progress bars update smoothly during processing"
+        - "Error details expand/collapse properly"
+        - "Cancel confirmation dialog appears and functions"
+        - "Manual refresh button works immediately"
+
+    - category: "Responsive Design"
+      tests:
+        - "Dashboard displays correctly on desktop (1920px+)"
+        - "Dashboard adapts to tablet view (768-1024px)"
+        - "Dashboard functions on mobile devices (320-767px)"
+        - "Touch interactions work on mobile"
+        - "Table converts to cards on mobile appropriately"
+
+    - category: "Accessibility"
+      tests:
+        - "All interactive elements have proper focus indicators"
+        - "Screen reader announces status changes"
+        - "Keyboard navigation works for all features"
+        - "Color contrast meets WCAG 2.1 AA standards"
+        - "ARIA labels and roles are properly implemented"
+
+    - category: "Error Scenarios"
+      tests:
+        - "Dashboard handles API unavailability gracefully"
+        - "Connection status indicator shows correct states"
+        - "Error messages are user-friendly and actionable"
+        - "Dashboard recovers from temporary API failures"
+        - "File-specific errors are categorized correctly"
+
+    - category: "Performance"
+      tests:
+        - "Dashboard remains responsive with 50+ files"
+        - "Memory usage stays within reasonable limits"
+        - "Polling doesn't cause excessive API load"
+        - "Page loads quickly even with large datasets"
+
+  # Integration Tests
+  integration_tests:
+    - "Upload interface redirects to dashboard with jobId"
+    - "Dashboard receives job status from API endpoints"
+    - "Cancel operation works end-to-end"
+    - "Error states propagate from API to UI correctly"
+    - "Status updates don't interfere with CLI operations"
+
+  # Cross-browser Testing
+  cross_browser:
+    browsers: ["Chrome", "Firefox", "Safari", "Edge"]
+    versions: ["latest", "latest-1"]
+    operating_systems: ["macOS", "Windows", "Linux"]
+
+  # Performance Benchmarks
+  performance:
+    - metric: "Page Load Time"
+      target: "< 2 seconds"
+      measurement: "Time to interactive"
+
+    - metric: "Real-time Update Latency"
+      target: "< 500ms"
+      measurement: "UI update after API response"
+
+    - metric: "Memory Usage"
+      target: "< 100MB"
+      measurement: "Peak memory during 50-file processing"
+
+    - metric: "API Call Frequency"
+      target: "2-5 seconds"
+      measurement: "Polling interval with backoff"
+
+environment_requirements:
+  test_environment:
+    - "Node.js 18+"
+    - "Next.js development server"
+    - "Mock API server for testing"
+    - "Various viewport sizes for responsive testing"
+
+  test_data:
+    - "Sample PDF files of various sizes"
+    - "Processing jobs with different completion states"
+    - "Error scenarios (network failures, file errors)"
+    - "Large batches (50+ files) for performance testing"
+
+quality_gates:
+  code_quality:
+    - "ESLint passes with zero errors"
+    - "TypeScript compilation succeeds"
+    - "Test coverage > 80% for dashboard components"
+    - "Bundle size remains under 500KB"
+
+  accessibility:
+    - "WCAG 2.1 AA compliance verified"
+    - "Screen reader testing passed"
+    - "Keyboard navigation fully functional"
+
+  performance:
+    - "Lighthouse score > 90 for performance"
+    - "No memory leaks detected"
+    - "API polling doesn't impact server performance"
+
+sign_off_requirements:
+  - "Product Owner acceptance"
+  - "QA Lead approval"
+  - "Technical Lead code review"
+  - "Accessibility audit passed"
+  - "Performance benchmarks met"
+
+risks_and_mitigations:
+  - risk: "Real-time polling may impact API performance"
+    mitigation: "Implement exponential backoff and rate limiting"
+
+  - risk: "Large datasets may cause UI performance issues"
+    mitigation: "Implement virtual scrolling and pagination if needed"
+
+  - risk: "Browser compatibility issues with older browsers"
+    mitigation: "Test across supported browser matrix"
+
+  - risk: "Memory leaks from frequent state updates"
+    mitigation: "Use proper cleanup and React best practices"

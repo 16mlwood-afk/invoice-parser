@@ -416,7 +416,7 @@ class ParserFactory {
     // Add item-level metrics
     if (metrics.fields.items) {
       const itemsWithPrices = invoice.items.filter(item =>
-        item.price && item.price.trim() && item.description && item.description.trim()
+        (item.unitPrice || item.totalPrice) && item.description && item.description.trim()
       );
       metrics.itemsDetail = {
         totalItems: invoice.items.length,

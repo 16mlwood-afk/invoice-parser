@@ -121,8 +121,7 @@ class EUConsumerParser extends BaseParser {
   }
 
   /**
-   * Extract items from EU consumer invoices (line-based format)
-   * Consumer invoices have data after ASIN on separate lines
+   * Extract items from EU consumer invoices (table-based format)
    * @param {string} text - Preprocessed text
    * @returns {Array} - Array of extracted items
    */
@@ -134,31 +133,80 @@ class EUConsumerParser extends BaseParser {
       const asin = match[1];
       const asinIndex = match.index;
 
-      // Look BACKWARD for description
+      // Look BACKWARD for description (table format)
       const textBefore = text.substring(
-        Math.max(0, asinIndex - 300),
+        Math.max(0, asinIndex - 600),
         asinIndex
       );
-      const lines = textBefore.split('\n');
-      const description = lines[lines.length - 2]?.trim() || '';
 
-      // Look FORWARD - data comes after ASIN on new lines
-      const textAfter = text.substring(asinIndex, asinIndex + 200);
+      // Extract description from the line immediately before ASIN
+      const linesBefore = textBefore.split('\n');
+      let description = '';
+      for (let i = linesBefore.length - 1; i >= 0; i--) {
+        const line = linesBefore[i].trim();
+        if (line && !line.includes('ASIN:') && line.length > 10) {
+          description = line;
+          break;
+        }
+      }
 
-      // Consumer pattern: separate lines
-      // "ASIN: B08W23J183"
-      // "1    155,45 €    0%    155,45 €    155,45 €"
-      const dataMatch = textAfter.match(
-        /\n\s*(\d+)\s+(\d+,\d{2})\s*€.*?(\d+,\d{2})\s*€\s*$/m
-      );
+      // Look FORWARD for pricing data (table format)
+      const textAfter = text.substring(asinIndex, asinIndex + 300);
 
-      if (dataMatch) {
+      // Parse the table structure more intelligently
+      // EU Consumer format: Description | ASIN | UnitPriceHT € | Tax% | UnitPriceTTC € | TotalTTC €
+      const lines = textAfter.split('\n').slice(1, 6); // Next 5 lines after ASIN
+
+      // Look for the pricing pattern in the lines
+      let unitPrice = null;
+      let totalPrice = null;
+      let taxRate = null;
+
+      // Find the line with pricing data (should be the first line with € amounts)
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        // Skip lines that are just numbers/symbols or tax percentages
+        if (/^\d+\s*%?$/.test(trimmedLine) || trimmedLine.length < 3) {
+          if (/^\d+\s*%?$/.test(trimmedLine)) {
+            taxRate = parseInt(trimmedLine);
+          }
+          continue;
+        }
+
+        // Look for euro amounts in this line
+        const euroMatches = [...trimmedLine.matchAll(/(\d+,\d{2})\s*€/g)];
+
+        if (euroMatches.length > 0) {
+          const amounts = euroMatches.map(match => parseFloat(match[1].replace(',', '.')));
+
+          // If we have amounts and haven't set prices yet
+          if (!unitPrice && !totalPrice) {
+            if (amounts.length === 1) {
+              // Single amount - in consumer invoices, this is usually the total price
+              totalPrice = amounts[0];
+              unitPrice = amounts[0]; // For consumer invoices, unit price = total price
+            } else if (amounts.length >= 2) {
+              // Multiple amounts - typically unit price HT, unit price TTC, total TTC
+              // In consumer invoices, the last amount is usually the total
+              unitPrice = amounts[0]; // First amount is usually unit price HT
+              totalPrice = amounts[amounts.length - 1]; // Last amount is total TTC
+            }
+          }
+          break; // Found pricing data, stop looking
+        }
+      }
+
+      // Only create item if we have pricing data
+      if (unitPrice && totalPrice) {
+        const quantity = 1; // Consumer invoices typically have quantity 1
+
         items.push({
           asin,
-          description,
-          quantity: parseInt(dataMatch[1]),
-          unitPrice: parseFloat(dataMatch[2].replace(',', '.')),
-          totalPrice: parseFloat(dataMatch[3].replace(',', '.')),
+          description: description.trim(),
+          quantity,
+          unitPrice,
+          totalPrice,
           currency: 'EUR'
         });
       }

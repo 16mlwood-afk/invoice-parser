@@ -44,7 +44,7 @@ Payment Method: Visa ****1234
 
         // Validate extracted data
         expect(invoice.orderNumber).toBe('123-4567890-1234567');
-        expect(invoice.orderDate).toBe('December 15, 2023');
+        expect(invoice.orderDate).toBe('2023-12-15'); // Date is normalized to ISO format
         expect(invoice.subtotal).toBe('$159.98');
         expect(invoice.total).toBe('$172.78');
         expect(invoice.vendor).toBe('Amazon');

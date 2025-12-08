@@ -115,3 +115,11 @@ coverage-e2e/
 production-test-results/
 *.report.json
 *.test-results.json
+
+# Debug files and temporary scripts
+debug-*.js
+test-*.js
+*.debug.js
+*.original.js
+test_output/
+debug_output/

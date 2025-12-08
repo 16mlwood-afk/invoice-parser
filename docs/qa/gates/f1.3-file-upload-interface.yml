@@ -1,0 +1,181 @@
+---
+name: "F1.3: File Upload Interface"
+description: "QA gate for the file upload interface implementation"
+status: "pending"
+story: "docs/stories/f1.3.file-upload-interface.story.md"
+
+# QA Criteria
+qa_criteria:
+  # Functional Requirements
+  - name: "Drag-and-drop zone accepts PDF files"
+    description: "UploadZone component properly handles drag-and-drop of PDF files with visual feedback"
+    test_type: "unit"
+    automated: true
+    status: "pending"
+    evidence_required: "Unit tests pass for UploadZone drag-and-drop functionality"
+
+  - name: "File validation for PDF format and size limits"
+    description: "Client-side validation enforces PDF-only files and 50MB per file limit"
+    test_type: "unit"
+    automated: true
+    status: "pending"
+    evidence_required: "File validation tests pass, file-validation.ts functions work correctly"
+
+  - name: "File preview shows name, size, and type"
+    description: "FilePreview component displays correct file metadata and validation status"
+    test_type: "unit"
+    automated: true
+    status: "pending"
+    evidence_required: "FilePreview component tests pass with proper metadata display"
+
+  - name: "Batch upload support up to 50 files"
+    description: "Upload system supports selecting and managing up to 50 files simultaneously"
+    test_type: "unit"
+    automated: true
+    status: "pending"
+    evidence_required: "Batch validation and file count tests pass"
+
+  - name: "Clear progress indicators and error messages"
+    description: "UploadProgress component shows progress, handles errors, and provides user feedback"
+    test_type: "unit"
+    automated: true
+    status: "pending"
+    evidence_required: "UploadProgress component tests pass"
+
+  # Integration Requirements
+  - name: "API integration maintains CLI compatibility"
+    description: "Upload functionality uses /api/upload endpoint without affecting existing CLI"
+    test_type: "integration"
+    automated: false
+    status: "pending"
+    evidence_required: "Integration tests verify API calls work correctly"
+
+  - name: "File handling maintains parser requirements"
+    description: "Uploaded files maintain compatibility with existing parser input expectations"
+    test_type: "integration"
+    automated: false
+    status: "pending"
+    evidence_required: "End-to-end testing with actual PDF processing"
+
+  - name: "Error messages align with CLI patterns"
+    description: "Frontend error messages match existing CLI error handling patterns"
+    test_type: "unit"
+    automated: true
+    status: "pending"
+    evidence_required: "Error message validation tests pass"
+
+  # Non-functional Requirements
+  - name: "Accessibility compliance (WCAG AA)"
+    description: "Upload interface meets WCAG AA accessibility standards"
+    test_type: "accessibility"
+    automated: false
+    status: "pending"
+    evidence_required: "Manual accessibility testing and automated a11y checks pass"
+
+  - name: "Responsive design for mobile/tablet/desktop"
+    description: "Upload interface works across all device sizes"
+    test_type: "visual"
+    automated: false
+    status: "pending"
+    evidence_required: "Cross-device testing completed"
+
+  - name: "Browser compatibility"
+    description: "Works in Chrome 90+, Firefox 88+, Safari 14+, Edge 90+"
+    test_type: "compatibility"
+    automated: false
+    status: "pending"
+    evidence_required: "Cross-browser testing completed"
+
+  # Quality Assurance
+  - name: "Code quality and linting"
+    description: "All upload-related code passes linting and follows coding standards"
+    test_type: "static"
+    automated: true
+    status: "pending"
+    evidence_required: "ESLint passes with no errors in upload components"
+
+  - name: "Unit test coverage"
+    description: "Upload components have comprehensive unit test coverage"
+    test_type: "coverage"
+    automated: true
+    status: "pending"
+    evidence_required: "Jest test coverage meets 80% threshold for upload components"
+
+  - name: "Performance requirements"
+    description: "File validation <100ms, UI responsiveness <16ms, memory <100MB for 50 files"
+    test_type: "performance"
+    automated: false
+    status: "pending"
+    evidence_required: "Performance testing completed and requirements met"
+
+# Testing Environments
+testing_environments:
+  - name: "Unit Tests"
+    description: "Jest unit tests for all upload components"
+    command: "npm test -- --testPathPattern=upload --watchAll=false"
+    expected_outcome: "All 77 tests pass"
+
+  - name: "Linting"
+    description: "ESLint check for upload components"
+    command: "npx eslint components/upload/ app/upload/ stores/upload-store.ts --ext .ts,.tsx"
+    expected_outcome: "No linting errors"
+
+  - name: "Integration Tests"
+    description: "API integration and end-to-end upload flow"
+    command: "npm run test:integration"
+    expected_outcome: "Upload integration tests pass"
+
+  - name: "Accessibility Testing"
+    description: "Manual accessibility verification"
+    command: "Manual testing with screen readers and keyboard navigation"
+    expected_outcome: "WCAG AA compliance verified"
+
+# Risk Assessment
+risks:
+  - name: "File upload security"
+    description: "Client-side validation only - backend validation critical"
+    severity: "high"
+    mitigation: "Backend validation implemented and tested"
+
+  - name: "Browser API inconsistencies"
+    description: "File API behavior varies across browsers"
+    severity: "medium"
+    mitigation: "Progressive enhancement and fallback handling"
+
+  - name: "Memory usage with large batches"
+    description: "50 files in memory could cause performance issues"
+    severity: "medium"
+    mitigation: "File size limits and memory monitoring implemented"
+
+# Sign-off Requirements
+sign_off_requirements:
+  - role: "QA Engineer"
+    responsibility: "Execute all QA criteria and verify pass/fail status"
+    checklist:
+      - "All automated tests pass"
+      - "Manual testing completed"
+      - "Accessibility verified"
+      - "Cross-browser testing completed"
+      - "Performance requirements met"
+
+  - role: "Developer"
+    responsibility: "Address any issues found during QA"
+    checklist:
+      - "Code review feedback addressed"
+      - "Linting issues resolved"
+      - "Test failures fixed"
+
+  - role: "Product Owner"
+    responsibility: "Verify acceptance criteria are met"
+    checklist:
+      - "User story acceptance criteria validated"
+      - "Integration requirements confirmed"
+      - "No regressions in existing functionality"
+
+# Exit Criteria
+exit_criteria:
+  - "All QA criteria marked as 'passed'"
+  - "No critical or high-severity issues remain"
+  - "Code review completed and approved"
+  - "Documentation updated"
+  - "Performance and accessibility requirements met"

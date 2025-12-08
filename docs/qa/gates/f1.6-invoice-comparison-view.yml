@@ -1,0 +1,186 @@
+---
+name: "F1.6: Invoice Comparison View"
+description: "QA gate for the invoice comparison view implementation"
+status: "passed"
+story: "docs/stories/f1.6.invoice-comparison-view.story.md"
+
+# QA Criteria
+qa_criteria:
+  # Functional Requirements (AC: 1.6.1, 1.6.2, 1.6.3, 1.6.4, 1.6.5)
+  - name: "Side-by-side comparison interface for multiple invoices"
+    description: "ComparisonTable component displays multiple invoices in tabular format with field-by-field comparison"
+    test_type: "unit"
+    automated: true
+    status: "passed"
+    evidence_required: "ComparisonTable component tests pass for multi-invoice display and layout"
+
+  - name: "Highlighting of differences and validation issues"
+    description: "Color-coded highlighting shows differences between invoices and validation problems"
+    test_type: "unit"
+    automated: true
+    status: "passed"
+    evidence_required: "Difference highlighting tests pass with proper color coding and visual indicators"
+
+  - name: "Filtering and sorting options for comparison results"
+    description: "ComparisonFilters component provides field selection, sorting by difference severity, and filtering options"
+    test_type: "unit"
+    automated: true
+    status: "passed"
+    evidence_required: "Filtering and sorting component tests pass for all filter types and sorting options"
+
+  - name: "Export functionality for comparison reports"
+    description: "ComparisonExport component provides download functionality for JSON, CSV, and PDF formats"
+    test_type: "integration"
+    automated: true
+    status: "passed"
+    evidence_required: "Export API endpoints implemented with JSON/CSV/PDF support, frontend integration complete"
+
+  - name: "Visual indicators for data confidence levels"
+    description: "Confidence indicators display extraction confidence scores for each field comparison"
+    test_type: "unit"
+    automated: true
+    status: "passed"
+    evidence_required: "Confidence indicator component tests pass with proper visual representation"
+
+  # Integration Requirements (IV1, IV2, IV3)
+  - name: "Comparison logic works with existing parser output formats"
+    description: "Client-side comparison algorithms handle existing InvoiceData schema and parser output structures"
+    test_type: "integration"
+    automated: true
+    status: "passed"
+    evidence_required: "Comparison logic integration tests pass with real parser output data"
+
+  - name: "Validation highlighting uses existing parser validation rules"
+    description: "Comparison validation indicators align with backend parser validation logic and rules"
+    test_type: "integration"
+    automated: true
+    status: "passed"
+    evidence_required: "Validation rule alignment tests pass between frontend comparison and backend parser"
+
+  - name: "Export formats maintain compatibility with existing reporting"
+    description: "Comparison export formats match existing export API specifications and maintain compatibility"
+    test_type: "integration"
+    automated: false
+    status: "passed"
+    evidence_required: "Export format compatibility verified with existing reporting system"
+
+  # Non-functional Requirements
+  - name: "Accessibility compliance (WCAG AA)"
+    description: "Comparison interface meets WCAG AA accessibility standards with keyboard navigation and screen reader support"
+    test_type: "accessibility"
+    automated: false
+    status: "passed"
+    evidence_required: "Manual accessibility testing and automated checks pass for comparison components"
+
+  - name: "Responsive design for mobile/tablet/desktop"
+    description: "Comparison interface works across all device sizes with appropriate layout adjustments"
+    test_type: "visual"
+    automated: false
+    status: "passed"
+    evidence_required: "Cross-device testing completed for comparison views"
+
+  - name: "Browser compatibility"
+    description: "Works in Chrome 90+, Firefox 88+, Safari 14+, Edge 90+"
+    test_type: "compatibility"
+    automated: false
+    status: "passed"
+    evidence_required: "Cross-browser testing completed for comparison functionality"
+
+  # Quality Assurance
+  - name: "Code quality and linting"
+    description: "All comparison-related code passes linting and follows coding standards"
+    test_type: "static"
+    automated: true
+    status: "passed"
+    evidence_required: "ESLint passes with no errors in comparison components"
+
+  - name: "Unit test coverage"
+    description: "Comparison components have comprehensive unit test coverage"
+    test_type: "coverage"
+    automated: true
+    status: "passed"
+    evidence_required: "Jest test coverage meets 80% threshold for comparison components"
+
+  - name: "Performance requirements"
+    description: "Comparison calculation <2 seconds for 10 invoices, UI rendering <500ms, memory <100MB"
+    test_type: "performance"
+    automated: false
+    status: "passed"
+    evidence_required: "Performance testing completed and requirements met for multi-invoice comparison"
+
+# Testing Environments
+testing_environments:
+  - name: "Unit Tests"
+    description: "Jest unit tests for all comparison components and utilities"
+    command: "npm test -- --testPathPattern=compare --watchAll=false"
+    expected_outcome: "All comparison component tests pass"
+
+  - name: "Integration Tests"
+    description: "API integration and end-to-end comparison workflow"
+    command: "npm run test:integration:comparison"
+    expected_outcome: "Comparison integration tests pass"
+
+  - name: "Linting"
+    description: "ESLint check for comparison components"
+    command: "npx eslint app/compare/ components/comparison/ stores/comparison-store.ts src/lib/comparison/ src/lib/api/comparison.ts --ext .ts,.tsx"
+    expected_outcome: "No linting errors"
+
+  - name: "Accessibility Testing"
+    description: "Manual accessibility verification for comparison interface"
+    command: "Manual testing with screen readers and keyboard navigation for comparison tables and filters"
+    expected_outcome: "WCAG AA compliance verified"
+
+# Risk Assessment
+risks:
+  - name: "Complex comparison algorithms"
+    description: "Field comparison logic for different data types (numeric, string, date, arrays)"
+    severity: "medium"
+    mitigation: "Comprehensive unit tests for all comparison algorithms, integration testing with real data"
+
+  - name: "Client-side performance with large datasets"
+    description: "Comparison performance degradation with 10+ invoices or complex data structures"
+    severity: "medium"
+    mitigation: "Performance testing completed, client-side limitation documented for future server-side implementation"
+
+  - name: "State management complexity"
+    description: "Complex state synchronization between comparison filters, table display, and export functionality"
+    severity: "low"
+    mitigation: "Zustand store with proper state selectors and comprehensive testing"
+
+# Sign-off Requirements
+sign_off_requirements:
+  - role: "QA Engineer"
+    responsibility: "Execute all QA criteria and verify pass/fail status"
+    checklist:
+      - "All automated tests pass"
+      - "Manual testing completed for comparison workflows"
+      - "Accessibility verified for comparison interface"
+      - "Cross-browser testing completed"
+      - "Performance requirements met for comparison operations"
+      - "Export format compatibility verified"
+
+  - role: "Developer"
+    responsibility: "Address any issues found during QA"
+    checklist:
+      - "Code review feedback addressed"
+      - "Linting issues resolved"
+      - "Test failures fixed"
+      - "Comparison API implementation completed"
+      - "Performance optimizations implemented"
+
+  - role: "Product Owner"
+    responsibility: "Verify acceptance criteria are met"
+    checklist:
+      - "User story acceptance criteria validated"
+      - "Integration requirements confirmed"
+      - "No regressions in existing functionality"
+      - "Comparison functionality works end-to-end"
+
+# Exit Criteria
+exit_criteria:
+  - "All QA criteria marked as 'passed'"
+  - "No critical or high-severity issues remain"
+  - "Code review completed and approved"
+  - "Documentation updated for comparison interface"
+  - "Performance and accessibility requirements met"
+  - "Comparison functionality fully implemented and tested"

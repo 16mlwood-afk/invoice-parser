@@ -1,0 +1,26 @@
+{
+  "parser": {
+    "defaultRegion": "us",
+    "currency": "USD",
+    "dateFormat": "MM/DD/YYYY",
+    "language": "en",
+    "validation": {
+      "strictMode": false,
+      "confidenceThreshold": 0.7
+    }
+  },
+  "ui": {
+    "theme": "light",
+    "language": "en",
+    "itemsPerPage": 25,
+    "autoRefresh": true,
+    "showConfidenceScores": true,
+    "tableDensity": "comfortable"
+  },
+  "export": {
+    "defaultFormat": "json",
+    "includeValidation": true,
+    "includeMetadata": true,
+    "csvDelimiter": ","
+  }
+}

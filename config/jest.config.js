@@ -1,4 +1,5 @@
 module.exports = {
+  rootDir: '..',
   testEnvironment: 'node',
   collectCoverageFrom: [
     'index.js',

@@ -497,6 +497,249 @@ const result = await ParserFactory.parseInvoice(text);
 - Performance metrics are automatically collected
 - Schema validation is more strict
 
+## Web API Reference
+
+The Amazon Invoice Parser provides a RESTful API for web applications, enabling programmatic access to all parsing functionality.
+
+### Base URL
+```
+http://localhost:3001/api
+```
+
+### Authentication
+Currently, no authentication is required. All endpoints are publicly accessible.
+
+### Common Response Format
+All API responses follow this structure:
+```json
+{
+  "success": boolean,
+  "data"?: any,
+  "error"?: string,
+  "message"?: string
+}
+```
+
+### Endpoints
+
+#### GET /api/health
+Health check endpoint for monitoring API availability.
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-12-08T13:41:37.108Z",
+  "version": "1.0.0"
+}
+```
+
+#### POST /api/upload
+Upload PDF files for processing. Supports single files or batch uploads.
+
+**Request:**
+- Content-Type: `multipart/form-data`
+- Body: `files` (array of PDF files, max 50 files, 50MB each)
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "jobId": "job_1765201297135_ggy4scjur",
+  "message": "2 file(s) uploaded successfully",
+  "files": [
+    {
+      "filename": "invoice1.pdf",
+      "size": 245760,
+      "mimeType": "application/pdf"
+    }
+  ]
+}
+```
+
+**Response (Error - No files):**
+```json
+{
+  "error": "No files uploaded",
+  "message": "At least one PDF file must be provided"
+}
+```
+
+**Response (Error - Invalid file type):**
+```json
+{
+  "error": "Invalid file type",
+  "message": "Only PDF files are allowed for upload"
+}
+```
+
+#### POST /api/process/:jobId
+Start processing uploaded files for a specific job.
+
+**Parameters:**
+- `jobId`: Job identifier returned from upload endpoint
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "jobId": "job_1765201297135_ggy4scjur",
+  "message": "Processing started",
+  "status": "processing",
+  "note": "Use /api/status/:jobId to check progress"
+}
+```
+
+**Response (Error - Invalid job):**
+```json
+{
+  "error": "Invalid job ID",
+  "message": "Job ID must be provided and start with \"job_\""
+}
+```
+
+#### GET /api/status/:jobId
+Check the processing status of a job.
+
+**Parameters:**
+- `jobId`: Job identifier
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "job": {
+    "id": "job_1765201297135_ggy4scjur",
+    "status": "completed",
+    "progress": {
+      "total": 2,
+      "processed": 2,
+      "successful": 2,
+      "failed": 0
+    },
+    "files": [
+      {
+        "filename": "invoice1.pdf",
+        "size": 245760,
+        "uploadedAt": "2025-12-08T13:41:37.121Z"
+      }
+    ],
+    "created": "2025-12-08T13:41:37.108Z",
+    "completed": "2025-12-08T13:41:37.282Z",
+    "results": [...],
+    "errors": []
+  }
+}
+```
+
+#### GET /api/results/:jobId
+Retrieve processed results for a completed job.
+
+**Parameters:**
+- `jobId`: Job identifier
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "jobId": "job_1765201297135_ggy4scjur",
+  "results": [
+    {
+      "filename": "invoice1.pdf",
+      "success": true,
+      "data": {
+        "orderNumber": "123-4567890-1234567",
+        "orderDate": "2023-12-01",
+        "items": [...],
+        "subtotal": 99.99,
+        "tax": 8.00,
+        "total": 107.99
+      },
+      "processedAt": "2025-12-08T13:41:37.282Z"
+    }
+  ]
+}
+```
+
+**Response (Error - Job not completed):**
+```json
+{
+  "error": "Job not completed",
+  "message": "The job is still processing. Use /api/status/:jobId to check progress."
+}
+```
+
+#### GET /api/export/:jobId?format=json|csv|pdf
+Download processed results in the specified format.
+
+**Parameters:**
+- `jobId`: Job identifier
+- `format`: Export format (json, csv, or pdf)
+
+**Response:**
+- Downloads file with appropriate content-type and filename
+- JSON: `application/json` with filename `invoice-results-{jobId}.json`
+- CSV: `text/csv` with filename `invoice-results-{jobId}.csv`
+- PDF: `application/pdf` with filename `invoice-results-{jobId}.pdf`
+
+**Response (Error):**
+```json
+{
+  "error": "Export failed",
+  "message": "Job not found or export format not supported"
+}
+```
+
+**Example:**
+```javascript
+// Download as JSON
+const response = await fetch('/api/export/job_123?format=json');
+if (response.ok) {
+  const blob = await response.blob();
+  // Handle file download
+}
+
+// Download as CSV
+window.open('/api/export/job_123?format=csv', '_blank');
+```
+
+#### DELETE /api/cleanup/:jobId
+Clean up temporary files and job data.
+
+**Parameters:**
+- `jobId`: Job identifier
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "jobId": "job_1765201297135_ggy4scjur",
+  "message": "Job cleaned up successfully"
+}
+```
+
+### Error Codes
+
+| HTTP Status | Error Code | Description |
+|-------------|------------|-------------|
+| 400 | No files uploaded | No PDF files provided in upload request |
+| 400 | Invalid file type | Non-PDF file uploaded |
+| 400 | Invalid job ID | Job ID format is incorrect |
+| 404 | Job not found | Specified job does not exist |
+| 409 | Job not completed | Attempting to get results for incomplete job |
+| 500 | Internal server error | Unexpected server error |
+
+### Rate Limiting
+Currently, no rate limiting is implemented. Consider adding rate limiting for production deployment.
+
+### File Limits
+- Maximum 50 files per upload request
+- Maximum 50MB per individual file
+- Maximum 500MB total per batch upload
+
+### Data Compatibility
+All API responses maintain compatibility with existing CLI JSON output formats, ensuring seamless integration with existing workflows.
+
 ## Examples
 
 See the `examples/` directory for complete usage examples:
@@ -504,3 +747,30 @@ See the `examples/` directory for complete usage examples:
 - `basic-usage.js` - Simple single invoice parsing
 - `batch-processing.js` - Processing multiple invoices
 - `cli-usage.js` - Command-line interface examples
+
+### API Usage Example
+```javascript
+// Upload files
+const formData = new FormData();
+formData.append('files', pdfFile1);
+formData.append('files', pdfFile2);
+
+const uploadResponse = await fetch('/api/upload', {
+  method: 'POST',
+  body: formData
+});
+const { jobId } = await uploadResponse.json();
+
+// Start processing
+await fetch(`/api/process/${jobId}`, { method: 'POST' });
+
+// Check status
+const statusResponse = await fetch(`/api/status/${jobId}`);
+const { job } = await statusResponse.json();
+
+// Get results when complete
+if (job.status === 'completed') {
+  const resultsResponse = await fetch(`/api/results/${jobId}`);
+  const { results } = await resultsResponse.json();
+}
+```

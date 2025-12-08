@@ -6,7 +6,11 @@ const invoiceSchema = joi.object({
   orderDate: joi.string().allow(null),
   items: joi.array().items(joi.object({
     description: joi.string().required(),
-    price: joi.string().allow('').optional()
+    quantity: joi.number().integer().min(1).optional(),
+    unitPrice: joi.number().min(0).optional(),
+    totalPrice: joi.number().min(0).optional(),
+    currency: joi.string().optional(),
+    asin: joi.string().optional()
   })).default([]),
   subtotal: joi.string().allow(null),
   shipping: joi.string().allow(null),

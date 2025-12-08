@@ -132,9 +132,27 @@ class USParser extends BaseParser {
    */
   extractItems(text) {
     const items = [];
-    // US format specific item extraction logic
-    // This would need to be adapted based on actual US invoice format
-    // For now, using basic extraction
+
+    // US format: "X of: Description" followed by price
+    // Pattern: /(\d+)\s+of:\s*([^$]+?)\s*\$(\d+\.?\d*)/g
+    const itemRegex = /(\d+)\s+of:\s*([^$]+?)\s*\$(\d+\.?\d*)/g;
+
+    let match;
+    while ((match = itemRegex.exec(text)) !== null) {
+      const quantity = parseInt(match[1]);
+      const description = match[2].trim();
+      const unitPrice = parseFloat(match[3]);
+
+      items.push({
+        description,
+        quantity,
+        unitPrice,
+        totalPrice: quantity * unitPrice,
+        currency: 'USD',
+        asin: null // US invoices don't include ASIN
+      });
+    }
+
     return items;
   }
 
