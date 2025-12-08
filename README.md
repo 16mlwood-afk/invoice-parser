@@ -435,7 +435,10 @@ npm test
 # Run integration tests
 npm run test:integration
 
-# Run all tests
+# Run end-to-end tests
+npm run test:e2e
+
+# Run all tests (unit, integration, e2e)
 npm run test:all
 
 # Run tests with coverage
@@ -443,6 +446,9 @@ npm run test:coverage
 
 # Test with real PDF files
 npm run test:pdfs
+
+# Clean test artifacts and coverage reports
+npm run clean
 ```
 
 #### Test Data
@@ -600,10 +606,16 @@ This parser works seamlessly with the [Amazon Invoice Extractor](https://github.
 ### Available Scripts
 
 - `npm test` - Run unit tests
-- `npm run test-pdfs` - Test with actual PDF files
+- `npm run test:unit` - Run unit tests (same as npm test)
+- `npm run test:integration` - Run integration tests
+- `npm run test:e2e` - Run end-to-end tests
+- `npm run test:all` - Run all test suites
+- `npm run test:coverage` - Run tests with coverage report
+- `npm run test:pdfs` - Test with actual PDF files
+- `npm run clean` - Clean test artifacts and coverage reports
 - `npm start` - Run the main application
-- `npm run lint` - Run linting (when configured)
-- `npm run build` - Build the project (when configured)
+- `npm run lint` - Run linting
+- `npm run build` - Build the project (no-op, no build required)
 
 ## Current Status
 
