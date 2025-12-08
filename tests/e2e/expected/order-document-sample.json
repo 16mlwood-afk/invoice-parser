@@ -1,0 +1,71 @@
+{
+  "metadata": {
+    "filename": "order-document-sample.pdf",
+    "testDescription": "US Amazon.com order document with multiple shipments of colored pencils",
+    "language": "en",
+    "region": "US",
+    "dateCreated": "2025-12-08"
+  },
+  "expected": {
+    "orderNumber": "111-2536880-6683414",
+    "orderDate": "2025-11-08",
+    "items": [
+      {
+        "description": "Prismacolor Premier Colored Pencils, Soft Core, 48 Count - Ultra-Smooth, Durable, Vibrant Colors",
+        "quantity": 33,
+        "unitPrice": 32.69,
+        "totalPrice": 1078.77,
+        "notes": "Business Price, Condition: New"
+      },
+      {
+        "description": "Prismacolor Premier Colored Pencils, Soft Core, 48 Count - Ultra-Smooth, Durable, Vibrant Colors",
+        "quantity": 25,
+        "unitPrice": 32.69,
+        "totalPrice": 817.25,
+        "notes": "Business Price, Condition: New"
+      },
+      {
+        "description": "Prismacolor Premier Colored Pencils, Soft Core, 48 Count - Ultra-Smooth, Durable, Vibrant Colors",
+        "quantity": 10,
+        "unitPrice": 32.69,
+        "totalPrice": 326.90,
+        "notes": "Business Price, Condition: New"
+      },
+      {
+        "description": "Prismacolor Premier Colored Pencils, Soft Core, 48 Count - Ultra-Smooth, Durable, Vibrant Colors",
+        "quantity": 2,
+        "unitPrice": 32.69,
+        "totalPrice": 65.38,
+        "notes": "Business Price, Condition: New"
+      },
+      {
+        "description": "Prismacolor Premier Colored Pencils, Soft Core, 48 Count - Ultra-Smooth, Durable, Vibrant Colors",
+        "quantity": 30,
+        "unitPrice": 32.69,
+        "totalPrice": 980.70,
+        "notes": "Business Price, Condition: New"
+      }
+    ],
+    "financials": {
+      "subtotal": 3269.00,
+      "shipping": 0.00,
+      "tax": 0.00,
+      "total": 3269.00,
+      "currency": "USD"
+    },
+    "languageDetection": {
+      "expectedLanguage": "en",
+      "minConfidence": 0.80
+    },
+    "validation": {
+      "minValidationScore": 95,
+      "allowedWarnings": ["mathematical_inconsistency"],
+      "criticalFields": ["orderNumber", "orderDate", "total", "items"]
+    },
+    "vendor": "Amazon"
+  },
+  "tolerances": {
+    "financial": 0.01,
+    "confidence": 0.05
+  }
+}

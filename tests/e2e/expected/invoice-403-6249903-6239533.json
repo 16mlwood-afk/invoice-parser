@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "filename": "sample-invoice-4.pdf",
+    "testDescription": "Italian Amazon.it invoice with Sonicare Power Flosser and 20% VAT",
+    "language": "it",
+    "region": "IT",
+    "dateCreated": "2025-12-08"
+  },
+  "expected": {
+    "orderNumber": "403-6249903-6239533",
+    "orderDate": "2025-10-21",
+    "items": [
+      {
+        "description": "Philips Sonicare Irrigatore Orale Power Flosser 3000 Cordless - Per Denti e Gengive - Bianco Modello HX3826/31, Sonicare 3000, Bianco",
+        "quantity": 1,
+        "unitPrice": 43.19,
+        "totalPrice": 43.19,
+        "notes": "ASIN: B0CD9Y92WB"
+      }
+    ],
+    "financials": {
+      "subtotal": 43.19,
+      "shipping": 3.02,
+      "tax": 8.64,
+      "discount": 15.49,
+      "total": 51.83,
+      "currency": "EUR"
+    },
+    "languageDetection": {
+      "expectedLanguage": "it",
+      "minConfidence": 0.80
+    },
+    "validation": {
+      "minValidationScore": 95,
+      "allowedWarnings": [],
+      "criticalFields": ["orderNumber", "orderDate", "total", "items"]
+    },
+    "vendor": "Amazon"
+  },
+  "tolerances": {
+    "financial": 0.01,
+    "confidence": 0.05
+  }
+}

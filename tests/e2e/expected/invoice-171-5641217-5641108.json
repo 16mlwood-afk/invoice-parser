@@ -1,0 +1,57 @@
+{
+  "metadata": {
+    "filename": "sample-invoice-5.pdf",
+    "testDescription": "Spanish Amazon.es invoice with ASIN patterns and 0% VAT",
+    "language": "es",
+    "region": "ES",
+    "dateCreated": "2025-12-08"
+  },
+  "expected": {
+    "orderNumber": "171-5641217-5641108",
+    "orderDate": "2025-11-30",
+    "items": [
+      {
+        "description": "Philips Sonicare DiamondClean 9900 Prestige cepillo dental eléctrico, con SenseIQ y app, 5 modos, 3 intensidades, estuche de viaje cargador, negro, modelo HX9992/43, Negro, 4 Cabezales",
+        "quantity": 1,
+        "unitPrice": 165.27,
+        "totalPrice": 165.27,
+        "notes": "ASIN: B0F3D9YC75"
+      },
+      {
+        "description": "Philips Sonicare DiamondClean 9900 Prestige cepillo dental eléctrico, con SenseIQ y app, 5 modos, 3 intensidades, estuche de viaje cargador, negro, modelo HX9992/43, Negro, 4 Cabezales",
+        "quantity": 1,
+        "unitPrice": 165.27,
+        "totalPrice": 165.27,
+        "notes": "ASIN: B0F3D9YC75"
+      },
+      {
+        "description": "Philips Sonicare DiamondClean 9900 Prestige cepillo dental eléctrico, con SenseIQ y app, 5 modos, 3 intensidades, estuche de viaje cargador, negro, modelo HX9992/43, Negro, 4 Cabezales",
+        "quantity": 1,
+        "unitPrice": 165.27,
+        "totalPrice": 165.27,
+        "notes": "ASIN: B0F3D9YC75"
+      }
+    ],
+    "financials": {
+      "subtotal": 495.81,
+      "shipping": 6.01,
+      "tax": 0.00,
+      "total": 501.82,
+      "currency": "EUR"
+    },
+    "languageDetection": {
+      "expectedLanguage": "es",
+      "minConfidence": 0.80
+    },
+    "validation": {
+      "minValidationScore": 95,
+      "allowedWarnings": [],
+      "criticalFields": ["orderNumber", "orderDate", "total", "items"]
+    },
+    "vendor": "Amazon"
+  },
+  "tolerances": {
+    "financial": 0.01,
+    "confidence": 0.05
+  }
+}

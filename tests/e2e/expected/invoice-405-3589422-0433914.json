@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "filename": "sample-invoice-3.pdf",
+    "testDescription": "French Amazon.fr invoice with Sonicare toothbrush and 20% VAT",
+    "language": "fr",
+    "region": "FR",
+    "dateCreated": "2025-12-08"
+  },
+  "expected": {
+    "orderNumber": "405-3589422-0433914",
+    "orderDate": "2025-11-30",
+    "items": [
+      {
+        "description": "Philips Sonicare DiamondClean 9000 - Brosse à dents électrique avec application, Édition spéciale, capteur de pression, socle de charge, rose, modèle HX9911/79",
+        "quantity": 1,
+        "unitPrice": 90.27,
+        "totalPrice": 90.27,
+        "notes": "ASIN: B0B1324W2T"
+      }
+    ],
+    "financials": {
+      "subtotal": 90.27,
+      "shipping": 1.66,
+      "tax": 18.38,
+      "total": 110.31,
+      "currency": "EUR"
+    },
+    "languageDetection": {
+      "expectedLanguage": "fr",
+      "minConfidence": 0.80
+    },
+    "validation": {
+      "minValidationScore": 95,
+      "allowedWarnings": [],
+      "criticalFields": ["orderNumber", "orderDate", "total", "items"]
+    },
+    "vendor": "Amazon"
+  },
+  "tolerances": {
+    "financial": 0.01,
+    "confidence": 0.05
+  }
+}

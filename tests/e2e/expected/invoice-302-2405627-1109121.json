@@ -1,0 +1,392 @@
+{
+  "metadata": {
+    "filename": "sample-invoice-1.pdf",
+    "testDescription": "German Amazon.de invoice with 50 identical items of Priorin capsules with discount",
+    "language": "de",
+    "region": "DE",
+    "dateCreated": "2025-12-08"
+  },
+  "expected": {
+    "orderNumber": "302-2405627-1109121",
+    "orderDate": "2025-11-29",
+    "items": [
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      },
+      {
+        "description": "Priorin Kapseln | Haarausfall bei Frauen | volleres und kräftigeres Haar | nährstoffreich: Hirseextrakt, Vitamin B5 und Cystin | 1 x 120 Stück",
+        "quantity": 1,
+        "unitPrice": 37.37,
+        "totalPrice": 37.37,
+        "notes": "ASIN: B00E63ACZK"
+      }
+    ],
+    "financials": {
+      "subtotal": 1868.5,
+      "shipping": 0,
+      "tax": 0,
+      "discount": 280.28,
+      "total": 1588.22,
+      "currency": "EUR"
+    },
+    "languageDetection": {
+      "expectedLanguage": "de",
+      "minConfidence": 0.8
+    },
+    "validation": {
+      "minValidationScore": 95,
+      "allowedWarnings": [],
+      "criticalFields": [
+        "orderNumber",
+        "orderDate",
+        "total",
+        "items"
+      ]
+    },
+    "vendor": "Amazon"
+  },
+  "tolerances": {
+    "financial": 0.01,
+    "confidence": 0.05
+  }
+}
