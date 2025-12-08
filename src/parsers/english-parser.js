@@ -28,6 +28,7 @@ class EnglishParser extends BaseParser {
       subtotal: subtotal,
       shipping: this.extractShipping(text),
       tax: this.extractTax(text),
+      discount: this.extractDiscount(text),
       total: this.extractTotal(text),
       vendor: 'Amazon'
     };
@@ -111,7 +112,7 @@ class EnglishParser extends BaseParser {
       if (match) {
         const dateStr = match[1];
         if (this.isValidDate(dateStr)) {
-          return dateStr;
+          return this.normalizeDate(dateStr) || dateStr;
         }
       }
     }
@@ -134,7 +135,96 @@ class EnglishParser extends BaseParser {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
 
-      // English item patterns
+      // Primary English pattern: ASIN lines followed by price lines (adapted from Spanish)
+      const asinMatch = line.match(/ASIN:\s*([A-Z0-9]+)/i);
+      if (asinMatch) {
+        // Look ahead for the price line (should be the next line or nearby)
+        for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+          const priceLine = lines[j].trim();
+
+          // English price pattern: quantity x $price (for bulk shipments)
+          const bulkPriceMatch = priceLine.match(/(\d+)\s*x\s*[$]([\d,.]+)/);
+          if (bulkPriceMatch) {
+            const [, quantity, unitPrice] = bulkPriceMatch;
+            const totalPrice = (parseFloat(unitPrice.replace(/,/g, '')) * parseInt(quantity)).toFixed(2);
+
+            // Try to find description - look backwards for product name
+            let description = 'Amazon Product'; // Default
+            for (let k = i - 1; k >= Math.max(0, i - 10); k--) {
+              const descLine = lines[k].trim();
+              if (descLine && !descLine.includes('ASIN:') && descLine.length > 10) {
+                description = descLine;
+                break;
+              }
+            }
+
+            items.push({
+              description: description,
+              price: `$${totalPrice}`
+            });
+
+            i = j; // Skip to after the price line
+            break;
+          }
+
+          // Alternative pattern: just price without quantity breakdown
+          const simplePriceMatch = priceLine.match(/[$]([\d,.]+)/);
+          if (simplePriceMatch && !priceLine.includes('x')) {
+            const price = `$${simplePriceMatch[1]}`;
+            let description = 'Amazon Product';
+
+            // Look for description
+            for (let k = i - 1; k >= Math.max(0, i - 10); k--) {
+              const descLine = lines[k].trim();
+              if (descLine && !descLine.includes('ASIN:') && descLine.length > 10) {
+                description = descLine;
+                break;
+              }
+            }
+
+            items.push({
+              description: description,
+              price: price
+            });
+
+            i = j;
+            break;
+          }
+        }
+        continue;
+      }
+
+      // Special pattern for bulk order documents: "XX of: [description]"
+      const bulkOrderMatch = line.match(/(\d+)\s+of:\s*(.+)/i);
+      if (bulkOrderMatch) {
+        const [, quantity, description] = bulkOrderMatch;
+
+        // Look ahead for the price (should be within next few lines)
+        for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
+          const priceLine = lines[j].trim();
+
+          // Look for price pattern: $XX.XX
+          const priceMatch = priceLine.match(/\$([0-9,]+\.[0-9]{2})/);
+          if (priceMatch) {
+            const unitPrice = priceMatch[1].replace(/,/g, '');
+            const totalPrice = (parseFloat(unitPrice) * parseInt(quantity)).toFixed(2);
+
+            // Clean up description (remove extra whitespace)
+            const cleanDescription = description.trim();
+
+            items.push({
+              description: `${quantity} x ${cleanDescription}`,
+              price: `$${totalPrice}`
+            });
+
+            i = j; // Skip to after the price line
+            break;
+          }
+        }
+        continue;
+      }
+
+      // Fallback English item patterns
       // Pattern: quantity x description $price
       const englishItemPattern = /(\d+)\s*x\s+(.+?)\s+[$]([\d,.]+)/i;
       const match = line.match(englishItemPattern);
@@ -159,14 +249,25 @@ class EnglishParser extends BaseParser {
         continue;
       }
 
-      // Pattern: description $price
+      // Pattern: description $price (fallback for other patterns)
       const simplePattern = /(.+?)\s+[$]([\d,.]+)/i;
       const simpleMatch = line.match(simplePattern);
       if (simpleMatch) {
         const [, description, price] = simpleMatch;
-        // Avoid matching totals, subtotals, etc.
         const desc = description.trim();
-        if (!/(subtotal|shipping|tax|total)/i.test(desc) && desc.length > 3) {
+
+        // Skip financial summary lines, credit card lines, and other non-item lines
+        const skipPatterns = [
+          /(subtotal|shipping|tax|total|order total)/i,
+          /(visa|mastercard|amex|ending in|card)/i,
+          /(business price|condition|sold by)/i,
+          /(shipping address|shipping speed)/i,
+          /^.{0,20}$/  // Very short lines
+        ];
+
+        const shouldSkip = skipPatterns.some(pattern => pattern.test(desc));
+
+        if (!shouldSkip && desc.length > 10) {  // Require minimum description length
           items.push({
             description: desc,
             price: `$${price}`
@@ -252,6 +353,34 @@ class EnglishParser extends BaseParser {
   }
 
   /**
+   * Extract discount from English invoices
+   * @param {string} text - Preprocessed text
+   * @returns {string|null} - Discount amount or null
+   */
+  extractDiscount(text) {
+    if (!text || typeof text !== 'string') return null;
+
+    const discountPatterns = [
+      /Discount[:\s]*[$]([\d,.]+)/i,
+      /Discount[:\s]*([\d,.]+)\s*[$]/i,
+      /Promotion[:\s]*[$]([\d,.]+)/i,
+      /Promotion[:\s]*([\d,.]+)\s*[$]/i,
+      /Savings[:\s]*[$]([\d,.]+)/i,
+      /Savings[:\s]*([\d,.]+)\s*[$]/i,
+      /Coupon[:\s]*[$]([\d,.]+)/i,
+      /Coupon[:\s]*([\d,.]+)\s*[$]/i,
+      /Credit[:\s]*[$]([\d,.]+)/i,
+      /Credit[:\s]*([\d,.]+)\s*[$]/i,
+    ];
+
+    for (const pattern of discountPatterns) {
+      const match = text.match(pattern);
+      if (match) return match[2] ? `${match[1]} ${match[2]}` : `$${match[1]}`;
+    }
+    return null;
+  }
+
+  /**
    * Extract total from English invoices
    * @param {string} text - Preprocessed text
    * @returns {string|null} - Total amount or null
@@ -273,6 +402,38 @@ class EnglishParser extends BaseParser {
       if (match) return match[2] ? `${match[1]} ${match[2]}` : `$${match[1]}`;
     }
     return null;
+  }
+
+  /**
+   * Enhanced date validation for English dates
+   * @param {string} dateStr - Date string to validate
+   * @returns {boolean} - True if date appears valid
+   */
+  isValidDate(dateStr) {
+    // Call parent validation first
+    if (!super.isValidDate(dateStr)) {
+      return false;
+    }
+
+    // Additional English-specific validation
+    const upperDate = dateStr.toUpperCase();
+
+    // English month names
+    const englishMonths = [
+      'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+      'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'
+    ];
+
+    // Check if it contains an English month
+    const hasEnglishMonth = englishMonths.some(month => upperDate.includes(month));
+
+    // Check for MM/DD/YYYY format (common in US)
+    const hasUSDateFormat = /\b\d{1,2}\/\d{1,2}\/\d{4}\b/.test(upperDate);
+
+    // Check for DD/MM/YYYY format (common in UK)
+    const hasUKDateFormat = /\b\d{1,2}\/\d{1,2}\/\d{4}\b/.test(upperDate);
+
+    return hasEnglishMonth || hasUSDateFormat || hasUKDateFormat;
   }
 }
 

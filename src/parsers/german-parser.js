@@ -15,10 +15,13 @@ class GermanParser extends BaseParser {
   /**
    * Main extraction method for German invoices
    * @param {string} text - Preprocessed German invoice text
+   * @param {Object} options - Extraction options including format information
    * @returns {Object} - Extracted invoice data
    */
-  extract(text) {
+  extract(text, options = {}) {
+    // Use legacy German extraction for non-EU formats (fallback only)
     const items = this.extractItems(text);
+
     const subtotal = this.extractSubtotal(text) || this.calculateSubtotalFromItems(items);
 
     const rawInvoice = {
@@ -28,6 +31,7 @@ class GermanParser extends BaseParser {
       subtotal: subtotal,
       shipping: this.extractShipping(text),
       tax: this.extractTax(text),
+      discount: this.extractDiscount(text),
       total: this.extractTotal(text),
       vendor: 'Amazon'
     };
@@ -125,7 +129,7 @@ class GermanParser extends BaseParser {
         }
 
         if (this.isValidDate(dateStr)) {
-          return dateStr;
+          return this.normalizeDate(dateStr) || dateStr;
         }
       }
     }
@@ -148,7 +152,69 @@ class GermanParser extends BaseParser {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
 
-      // German item patterns
+      // Primary German pattern: ASIN lines followed by price lines (adapted from Spanish)
+      const asinMatch = line.match(/ASIN:\s*([A-Z0-9]+)/i);
+      if (asinMatch) {
+        // Look ahead for the price line (should be the next line or nearby)
+        for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+          const priceLine = lines[j].trim();
+
+          // German price pattern: base_price € percentage% included_price € final_price €
+          // Example: "1165,27 €0%165,27 €165,27 €" or "1165,27 €21%501,82 €501,82 €"
+          const priceMatch = priceLine.match(/([\d.,]+)\s*€(\d+)%([\d.,]+)\s*€([\d.,]+)\s*€/);
+          if (priceMatch) {
+            const [, basePrice, percentage, includedPrice, finalPrice] = priceMatch;
+
+            // Use the included VAT price (third group)
+            const price = `${includedPrice} €`;
+
+            // Try to find description - look backwards for product name
+            let description = 'Amazon Produkt'; // Default
+            for (let k = i - 1; k >= Math.max(0, i - 10); k--) {
+              const descLine = lines[k].trim();
+              if (descLine && !descLine.includes('ASIN:') && descLine.length > 10) {
+                description = descLine;
+                break;
+              }
+            }
+
+            items.push({
+              description: description,
+              price: price
+            });
+
+            i = j; // Skip to after the price line
+            break;
+          }
+
+          // Alternative pattern: just price without percentage breakdown
+          const simplePriceMatch = priceLine.match(/([\d.,]+)\s*€/);
+          if (simplePriceMatch && !priceLine.includes('%')) {
+            const price = `${simplePriceMatch[1]} €`;
+            let description = 'Amazon Produkt';
+
+            // Look for description
+            for (let k = i - 1; k >= Math.max(0, i - 10); k--) {
+              const descLine = lines[k].trim();
+              if (descLine && !descLine.includes('ASIN:') && descLine.length > 10) {
+                description = descLine;
+                break;
+              }
+            }
+
+            items.push({
+              description: description,
+              price: price
+            });
+
+            i = j;
+            break;
+          }
+        }
+        continue;
+      }
+
+      // Fallback German item patterns
       // Pattern: quantity x description price €
       const germanItemPattern = /(\d+)\s*x\s+(.+?)\s+([\d,.]+)\s*€/i;
       const match = line.match(germanItemPattern);
@@ -180,7 +246,7 @@ class GermanParser extends BaseParser {
         const [, description, price] = simpleMatch;
         // Avoid matching totals, subtotals, etc.
         const desc = description.trim();
-        if (!/(subtotal|zwischensumme|versand|mwst|gesamt|total)/i.test(desc) && desc.length > 3) {
+        if (!/(subtotal|zwischensumme|versand|mwst|gesamt|total|versandkosten)/i.test(desc) && desc.length > 3) {
           items.push({
             description: desc,
             price: `${price} €`
@@ -291,6 +357,45 @@ class GermanParser extends BaseParser {
   }
 
   /**
+   * Extract discount from German invoices
+   * @param {string} text - Preprocessed text
+   * @returns {string|null} - Discount amount or null
+   */
+  extractDiscount(text) {
+    if (!text || typeof text !== 'string') return null;
+
+    // German discount patterns
+    const discountPatterns = [
+      /Rabatt[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Rabatt[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+      /Nachlass[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Nachlass[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+      /Ermäßigung[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Ermäßigung[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+      /Skonto[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Skonto[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+      /Discount[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Discount[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+    ];
+
+    for (const pattern of discountPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        let amount = match[1];
+        if (match[2]) {
+          amount = `${match[1]} ${match[2]}`;
+        }
+
+        // Validate
+        if (/\d/.test(amount) && !/[a-zA-Z]/.test(amount.replace(/[$€£¥Fr]|CHF|EUR|USD|GBP|JPY/g, ''))) {
+          return amount;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * Extract total from German invoices
    * @param {string} text - Preprocessed text
    * @returns {string|null} - Total amount or null
@@ -332,6 +437,8 @@ class GermanParser extends BaseParser {
     }
     return null;
   }
+
+
 
   /**
    * Enhanced date validation for German dates

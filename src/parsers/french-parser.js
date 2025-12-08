@@ -28,6 +28,7 @@ class FrenchParser extends BaseParser {
       subtotal: subtotal,
       shipping: this.extractShipping(text),
       tax: this.extractTax(text),
+      discount: this.extractDiscount(text),
       total: this.extractTotal(text),
       vendor: 'Amazon'
     };
@@ -94,6 +95,12 @@ class FrenchParser extends BaseParser {
 
     // French date patterns
     const datePatterns = [
+      // Amazon EU specific patterns (most specific first)
+      /Date de commande(\d{1,2}\.\d{1,2}\.\d{4})/i,
+      /Date de commande\s*[:\s]*(\d{1,2}\.\d{1,2}\.\d{4})/i,
+      /Date de commande\s*[:\s]*(\d{1,2}\/\d{1,2}\/\d{4})/i,
+      /Commande passée le\s*[:\s]*(\d{1,2}\s+[a-zûé]+\s+\d{4})/i,
+      // Existing patterns
       /Date\s+de\s+commande[:\s]*(\d{1,2}er?\s+[a-zàâäéèêëïîôöùûüÿç]+\s+\d{4})/i,
       /Commande\s+du[:\s]*(\d{1,2}er?\s+[a-zàâäéèêëïîôöùûüÿç]+\s+\d{4})/i,
       /Le[:\s]*(\d{1,2}er?\s+[a-zàâäéèêëïîôöùûüÿç]+\s+\d{4})/i,
@@ -103,6 +110,8 @@ class FrenchParser extends BaseParser {
       /(?:Date\s+de\s+commande|Commande\s+du|Le)[:\s]*(\d{1,2}\.\d{1,2}\.\d{4})/i,
       // DD-MM-YYYY format
       /(?:Date\s+de\s+commande|Commande\s+du|Le)[:\s]*(\d{1,2}-\d{1,2}-\d{4})/i,
+      // Generic month name patterns
+      /(\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{4})/i,
     ];
 
     for (const pattern of datePatterns) {
@@ -110,7 +119,7 @@ class FrenchParser extends BaseParser {
       if (match) {
         const dateStr = match[1];
         if (this.isValidDate(dateStr)) {
-          return dateStr;
+          return this.normalizeDate(dateStr) || dateStr;
         }
       }
     }
@@ -133,7 +142,69 @@ class FrenchParser extends BaseParser {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
 
-      // French item patterns
+      // Primary French pattern: ASIN lines followed by price lines (adapted from Spanish)
+      const asinMatch = line.match(/ASIN:\s*([A-Z0-9]+)/i);
+      if (asinMatch) {
+        // Look ahead for the price line (should be the next line or nearby)
+        for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+          const priceLine = lines[j].trim();
+
+          // French price pattern: base_price € percentage% included_price € final_price €
+          // Example: "1165,27 €0%165,27 €165,27 €" or "1165,27 €21%501,82 €501,82 €"
+          const priceMatch = priceLine.match(/([\d.,]+)\s*€(\d+)%([\d.,]+)\s*€([\d.,]+)\s*€/);
+          if (priceMatch) {
+            const [, basePrice, percentage, includedPrice, finalPrice] = priceMatch;
+
+            // Use the included VAT price (third group)
+            const price = `${includedPrice} €`;
+
+            // Try to find description - look backwards for product name
+            let description = 'Produit Amazon'; // Default
+            for (let k = i - 1; k >= Math.max(0, i - 10); k--) {
+              const descLine = lines[k].trim();
+              if (descLine && !descLine.includes('ASIN:') && descLine.length > 10) {
+                description = descLine;
+                break;
+              }
+            }
+
+            items.push({
+              description: description,
+              price: price
+            });
+
+            i = j; // Skip to after the price line
+            break;
+          }
+
+          // Alternative pattern: just price without percentage breakdown
+          const simplePriceMatch = priceLine.match(/([\d.,]+)\s*€/);
+          if (simplePriceMatch && !priceLine.includes('%')) {
+            const price = `${simplePriceMatch[1]} €`;
+            let description = 'Produit Amazon';
+
+            // Look for description
+            for (let k = i - 1; k >= Math.max(0, i - 10); k--) {
+              const descLine = lines[k].trim();
+              if (descLine && !descLine.includes('ASIN:') && descLine.length > 10) {
+                description = descLine;
+                break;
+              }
+            }
+
+            items.push({
+              description: description,
+              price: price
+            });
+
+            i = j;
+            break;
+          }
+        }
+        continue;
+      }
+
+      // Fallback French item patterns
       // Pattern: quantity x description price €
       const frenchItemPattern = /(\d+)\s*x\s+(.+?)\s+([\d,.]+)\s*€/i;
       const match = line.match(frenchItemPattern);
@@ -165,7 +236,7 @@ class FrenchParser extends BaseParser {
         const [, description, price] = simpleMatch;
         // Avoid matching totals, subtotals, etc.
         const desc = description.trim();
-        if (!/(sous-total|livraison|tva|total)/i.test(desc) && desc.length > 3) {
+        if (!/(sous-total|livraison|tva|total|frais de port)/i.test(desc) && desc.length > 3) {
           items.push({
             description: desc,
             price: `${price} €`
@@ -266,6 +337,45 @@ class FrenchParser extends BaseParser {
   }
 
   /**
+   * Extract discount from French invoices
+   * @param {string} text - Preprocessed text
+   * @returns {string|null} - Discount amount or null
+   */
+  extractDiscount(text) {
+    if (!text || typeof text !== 'string') return null;
+
+    // French discount patterns
+    const discountPatterns = [
+      /Remise[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Remise[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+      /Réduction[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Réduction[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+      /Escompte[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Escompte[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+      /Rabais[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Rabais[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+      /Discount[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Discount[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+    ];
+
+    for (const pattern of discountPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        let amount = match[1];
+        if (match[2]) {
+          amount = `${match[1]} ${match[2]}`;
+        }
+
+        // Validate
+        if (/\d/.test(amount) && !/[a-zA-Z]/.test(amount.replace(/[$€£¥Fr]|CHF|EUR|USD|GBP|JPY/g, ''))) {
+          return amount;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * Extract total from French invoices
    * @param {string} text - Preprocessed text
    * @returns {string|null} - Total amount or null
@@ -299,6 +409,35 @@ class FrenchParser extends BaseParser {
       }
     }
     return null;
+  }
+
+  /**
+   * Enhanced date validation for French dates
+   * @param {string} dateStr - Date string to validate
+   * @returns {boolean} - True if date appears valid
+   */
+  isValidDate(dateStr) {
+    // Call parent validation first
+    if (!super.isValidDate(dateStr)) {
+      return false;
+    }
+
+    // Additional French-specific validation
+    const upperDate = dateStr.toUpperCase();
+
+    // French month names
+    const frenchMonths = [
+      'JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN',
+      'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'
+    ];
+
+    // Check if it contains a French month
+    const hasFrenchMonth = frenchMonths.some(month => upperDate.includes(month));
+
+    // Check for DD/MM/YYYY or DD.MM.YYYY format (common in France)
+    const hasFrenchDateFormat = /\b\d{1,2}[\/.]\d{1,2}[\/.]\d{4}\b/.test(upperDate);
+
+    return hasFrenchMonth || hasFrenchDateFormat;
   }
 }
 

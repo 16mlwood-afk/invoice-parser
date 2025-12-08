@@ -12,11 +12,15 @@
  */
 
 const joi = require('joi');
+const DateNormalizer = require('../utils/date-normalizer');
 
 class BaseParser {
   constructor(language, country) {
     this.language = language;
     this.country = country;
+
+    // Map language names to ISO language codes for date normalization
+    this.languageCode = this.getLanguageCode(language);
 
     // Define JSON schema for invoice validation (shared across all parsers)
     this.invoiceSchema = joi.object({
@@ -24,13 +28,23 @@ class BaseParser {
       orderDate: joi.string().allow(null),
       items: joi.array().items(joi.object({
         description: joi.string().required(),
-        price: joi.string().allow('').optional()
+        price: joi.string().allow('').optional(),
+        // EU format specific fields
+        asin: joi.string().optional(),
+        quantity: joi.number().integer().min(1).optional(),
+        unitPrice: joi.number().min(0).optional(),
+        totalPrice: joi.number().min(0).optional(),
+        currency: joi.string().optional()
       })).default([]),
       subtotal: joi.string().allow(null),
       shipping: joi.string().allow(null),
       tax: joi.string().allow(null),
+      discount: joi.string().allow(null),
       total: joi.string().allow(null),
       vendor: joi.string().default('Amazon'),
+      format: joi.string().optional(),
+      subtype: joi.string().allow(null).optional(),
+      currency: joi.string().optional(),
       pdfMetadata: joi.object({
         fileSize: joi.number().integer().min(0),
         extractedAt: joi.string().isoDate(),
@@ -153,6 +167,51 @@ class BaseParser {
   extractTax(text) {
     // Default implementation - subclasses should override
     return null;
+  }
+
+  /**
+   * Extract discount amount - to be overridden by language-specific parsers
+   * @param {string} text - Preprocessed text
+   * @returns {string|null} - Discount amount or null
+   */
+  extractDiscount(text) {
+    // Default implementation - subclasses should override
+    return null;
+  }
+
+  /**
+   * Get ISO language code from language name
+   * @param {string} languageName - Full language name (e.g., 'French', 'German')
+   * @returns {string} - ISO language code (e.g., 'fr', 'de')
+   */
+  getLanguageCode(languageName) {
+    const languageMap = {
+      'English': 'en',
+      'French': 'fr',
+      'German': 'de',
+      'Spanish': 'es',
+      'Italian': 'it',
+      'Japanese': 'ja',
+      'Dutch': 'nl',
+      'Swedish': 'sv',
+      'Portuguese': 'pt',
+      'Chinese': 'zh',
+      'Russian': 'ru',
+      'Arabic': 'ar',
+      'Hindi': 'hi',
+      'Korean': 'ko'
+    };
+
+    return languageMap[languageName] || 'en'; // Default to English
+  }
+
+  /**
+   * Normalize date to ISO format (YYYY-MM-DD)
+   * @param {string} dateStr - Date string to normalize
+   * @returns {string|null} - ISO date string or null
+   */
+  normalizeDate(dateStr) {
+    return DateNormalizer.normalize(dateStr, this.languageCode);
   }
 
   /**

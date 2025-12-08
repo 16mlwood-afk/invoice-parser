@@ -109,6 +109,9 @@ Thumbs.db
 # Test data and reports
 test-results/
 tests/fixtures/
+all_regions_test_data/
 output/
+coverage-e2e/
+production-test-results/
 *.report.json
 *.test-results.json

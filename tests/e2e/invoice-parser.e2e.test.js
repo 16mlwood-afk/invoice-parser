@@ -6,53 +6,52 @@ describe('Invoice Parser E2E Tests - Production Data', () => {
   const pdfDir = path.join(__dirname, '../../all_regions_test_data');
   const expectedDir = path.join(__dirname, 'expected');
 
-  // Test mapping: PDF filename → expected JSON
+  // Test mapping: filename → expected JSON
   const testCases = [
     {
-      pdf: 'sample-invoice-5.pdf',
+      file: 'sample-invoice-5.txt',
       expected: 'invoice-171-5641217-5641108.json',
       description: 'Spanish invoice with ASIN patterns'
     },
     {
-      pdf: 'invoice - 2025-12-03T185402.425.pdf',
+      file: 'invoice - 2025-12-03T185402.425.txt',
       expected: 'invoice-302-2405627-1109121.json',
       description: 'German invoice with 50 identical items'
     },
     {
-      pdf: 'sample-invoice-2.pdf',
+      file: 'sample-invoice-2.txt',
       expected: 'invoice-306-8329568-2478706.json',
       description: 'German invoice with Sonicare toothbrushes'
     },
     {
-      pdf: 'sample-invoice-3.pdf',
+      file: 'sample-invoice-3.txt',
       expected: 'invoice-405-3589422-0433914.json',
       description: 'French invoice with 20% VAT'
     },
     {
-      pdf: 'order-document-sample.pdf',
+      file: 'order-document-sample.txt',
       expected: 'order-document-sample.json',
       description: 'US order document with business pricing'
     }
   ];
 
-  testCases.forEach(({ pdf, expected, description }) => {
-    describe(`${description} (${pdf})`, () => {
+  testCases.forEach(({ file, expected, description }) => {
+    describe(`${description} (${file})`, () => {
       let actual, expectedData, parser;
 
       beforeAll(async () => {
-        // Set environment for E2E testing with mock data
+        // Use mock data injection for E2E testing
         process.env.NODE_ENV = 'development';
         process.env.E2E_TEST = 'true';
 
-        // Parse invoice
+        // Parse invoice (will use mock data)
         parser = new AmazonInvoiceParser();
-        const pdfPath = path.join(pdfDir, pdf);
-        actual = await parser.parseInvoice(pdfPath, { silent: true });
+        const filePath = path.join(pdfDir, file);
+        actual = await parser.parseInvoice(filePath, { silent: true });
 
         // Load expected data
         const expectedPath = path.join(expectedDir, expected);
         expectedData = JSON.parse(fs.readFileSync(expectedPath, 'utf8'));
-
       });
 
       describe('Basic Fields', () => {
@@ -183,9 +182,9 @@ describe('Invoice Parser E2E Tests - Production Data', () => {
     test('should successfully parse all production invoices', async () => {
       const parser = new AmazonInvoiceParser();
       const results = await Promise.all(
-        testCases.map(async ({ pdf }) => {
-          const pdfPath = path.join(pdfDir, pdf);
-          const invoice = await parser.parseInvoice(pdfPath, { silent: true });
+        testCases.map(async ({ file }) => {
+          const filePath = path.join(pdfDir, file);
+          const invoice = await parser.parseInvoice(filePath, { silent: true });
           return invoice.validation.score >= 95;
         })
       );

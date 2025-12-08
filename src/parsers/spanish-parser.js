@@ -28,6 +28,7 @@ class SpanishParser extends BaseParser {
       subtotal: subtotal,
       shipping: this.extractShipping(text),
       tax: this.extractTax(text),
+      discount: this.extractDiscount(text),
       total: this.extractTotal(text),
       vendor: 'Amazon'
     };
@@ -110,7 +111,7 @@ class SpanishParser extends BaseParser {
       if (match) {
         const dateStr = match[1];
         if (this.isValidDate(dateStr)) {
-          return dateStr;
+          return this.normalizeDate(dateStr) || dateStr;
         }
       }
     }
@@ -309,6 +310,45 @@ class SpanishParser extends BaseParser {
       if (match) {
         // Handle patterns with percentage + amount
         return match[2] ? match[2] + ' €' : match[1] + ' €';
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Extract discount from Spanish invoices
+   * @param {string} text - Preprocessed text
+   * @returns {string|null} - Discount amount or null
+   */
+  extractDiscount(text) {
+    if (!text || typeof text !== 'string') return null;
+
+    // Spanish discount patterns
+    const discountPatterns = [
+      /Descuento[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Descuento[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+      /Descuentos[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Descuentos[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+      /Rebaja[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Rebaja[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+      /Reducción[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Reducción[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+      /Discount[:\s]*(\d+(?:[.,]\d{1,2})?\s*€)/i,
+      /Discount[:\s]*(€\d+(?:[.,]\d{1,2})?)/i,
+    ];
+
+    for (const pattern of discountPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        let amount = match[1];
+        if (match[2]) {
+          amount = `${match[1]} ${match[2]}`;
+        }
+
+        // Validate
+        if (/\d/.test(amount) && !/[a-zA-Z]/.test(amount.replace(/[$€£¥Fr]|CHF|EUR|USD|GBP|JPY/g, ''))) {
+          return amount;
+        }
       }
     }
     return null;

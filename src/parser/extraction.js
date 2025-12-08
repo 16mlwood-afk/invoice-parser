@@ -123,14 +123,10 @@ class Extraction {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
 
-      if (i >= 50 && i <= 65) { // Focus on lines around ASIN
-        console.log(`LINE ${i}: '${line}'`);
-      }
 
       // Spanish invoice items - look for ASIN lines followed by price lines (process regardless of section)
       const asinMatch = line.match(/ASIN:\s*([A-Z0-9]+)/i);
       if (asinMatch) {
-        console.log('FOUND ASIN:', line.trim());
         // Look ahead for the price line (should be the next line)
         if (i + 1 < lines.length) {
           const priceLine = lines[i + 1].trim();
@@ -162,13 +158,13 @@ class Extraction {
       }
 
       // Stop at section breaks (be more specific to avoid false positives)
+      // For Amazon, don't stop at "Shipping" since shipping address appears within each shipment
+      // Don't stop at "Total for This Shipment" as it's part of the items section
       if (inItemsSection && (
-          (line.includes('Subtotal') && !line.includes('(')) ||
+          (line.includes('Subtotal') && !line.includes('(') && !line.includes('Item(s)')) ||
           (line.includes('Zwischensumme') && !line.includes('(')) ||
           (line.includes('Sous-total') && !line.includes('(')) ||
-          (line.match(/\bTotal\b/) && !line.includes('Unitario') && !line.includes('(')) ||
-          (line.includes('Shipping') && !line.includes('(')) ||
-          (line.includes('Versand') && !line.includes('(')) ||
+          (line.match(/\bGrand Total\b/) || line.match(/\bOrder Total\b/) || line.match(/\bFinal Total\b/)) ||
           (line.includes('Payment') && !line.includes('(')) ||
           (line.includes('Zahlung') && !line.includes('(')) ||
           (line.includes('Envío') && !line.includes('(')))) {
@@ -176,6 +172,55 @@ class Extraction {
       }
 
       if (!inItemsSection || !line) continue;
+
+      // Amazon US format: "X of: [description]" with price on separate line
+      const amazonItemMatch = line.match(/^(\d+)\s+of:\s+(.+)$/);
+      if (amazonItemMatch) {
+        const quantity = parseInt(amazonItemMatch[1]);
+        const description = amazonItemMatch[2].trim();
+
+        // Look ahead for the price (typically within next 10 lines)
+        let price = null;
+        let currency = 'USD';
+
+        for (let j = 1; j <= 10 && i + j < lines.length; j++) {
+          const nextLine = lines[i + j].trim();
+
+          // Skip metadata lines but don't stop at shipping address within same shipment
+          if (nextLine.startsWith('Sold by:') ||
+              nextLine.startsWith('Business Price') ||
+              nextLine.startsWith('Condition:') ||
+              nextLine === '' ||
+              nextLine.includes('Shipping Speed:')) {
+            continue;
+          }
+
+          // Stop looking if we hit the next item or subtotal (but not shipping address within shipment)
+          if (nextLine.match(/^\d+\s+of:/) ||
+              nextLine.includes('Item(s) Subtotal:') ||
+              nextLine.includes('Total before tax:')) {
+            break;
+          }
+
+          // Look for price patterns
+          const priceMatch = nextLine.match(/^\$?(\d+\.\d{2})$/);
+          if (priceMatch) {
+            price = priceMatch[1];
+            break;
+          }
+        }
+
+        if (price) {
+          items.push({
+            description: `${quantity} x ${description}`,
+            price: `$${price}`,
+            quantity: quantity,
+            unitPrice: parseFloat(price),
+            currency: currency
+          });
+          continue; // Skip processing this line further
+        }
+      }
 
       // Try to parse real invoice item lines
       // Pattern: quantity x description price

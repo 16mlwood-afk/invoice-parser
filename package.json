@@ -14,7 +14,7 @@
     "test:watch": "jest --config config/jest.config.unit.js --watch",
     "test:coverage": "jest --config config/jest.config.unit.js --coverage",
     "test:integration:coverage": "jest --config config/jest.config.integration.js --coverage",
-    "test:pdfs": "node scripts/test-real-pdfs.js",
+    "test:pdfs": "node scripts/testing/test-real-pdfs.js",
     "test:old": "node test.js",
     "test:e2e": "jest --config config/jest.config.e2e.js --verbose",
     "test:e2e:watch": "jest --config config/jest.config.e2e.js --watch",

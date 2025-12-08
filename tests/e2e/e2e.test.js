@@ -5,27 +5,27 @@ const path = require('path');
 // Test data directory and files
 const TEST_DATA_DIR = path.join(__dirname, '../../all_regions_test_data');
 const TEST_PDFS = [
-  'order-document-sample.pdf',
-  'sample-invoice-1.pdf',
-  'sample-invoice-2.pdf',
-  'sample-invoice-3.pdf',
-  'sample-invoice-4.pdf',
-  'sample-invoice-5.pdf'
+  'english-amazon-usa.pdf',
+  'german-amazon-de.pdf',
+  'german-amazon-de-2.pdf',
+  'french-amazon-fr.pdf',
+  'italian-amazon-it.pdf',
+  'spanish-amazon-es.pdf'
 ];
 
 // Expected results based on actual parsed data
 const EXPECTED_RESULTS = {
-  'sample-invoice-1.pdf': {
+  'german-amazon-de.pdf': {
     orderNumber: '302-2405627-1109121',
     hasTotal: true,
     currency: '€'
   },
-  'sample-invoice-2.pdf': {
+  'german-amazon-de-2.pdf': {
     orderNumber: '103-4567890-1234567',
     hasTotal: true,
     currency: '$'
   },
-  'sample-invoice-3.pdf': {
+  'french-amazon-fr.pdf': {
     orderNumber: '202-7890123-4567890',
     hasTotal: true,
     currency: '€'
@@ -73,7 +73,7 @@ describe('Amazon Invoice Parser - End-to-End Tests', () => {
   });
 
   describe('Single File Parsing Tests', () => {
-    const testPdf = path.join(TEST_DATA_DIR, 'sample-invoice-1.pdf');
+    const testPdf = path.join(TEST_DATA_DIR, 'german-amazon-de.pdf');
 
     test('should parse single PDF to JSON format', () => {
       const outputPath = path.join(outputDir, 'single-test.json');
@@ -119,12 +119,12 @@ describe('Amazon Invoice Parser - End-to-End Tests', () => {
       const command = `node index.js parse "${testPdf}" --output-dir "${outputDir}" --format json`;
       execSync(command, { encoding: 'utf8' });
 
-      // Should create sample-invoice-1.json
-      const expectedFile = path.join(outputDir, 'sample-invoice-1.json');
+      // Should create german-amazon-de.json
+      const expectedFile = path.join(outputDir, 'german-amazon-de.json');
       expect(fs.existsSync(expectedFile)).toBe(true);
 
       const result = JSON.parse(fs.readFileSync(expectedFile, 'utf8'));
-      expect(result.orderNumber).toBe(EXPECTED_RESULTS['sample-invoice-1.pdf'].orderNumber);
+      expect(result.orderNumber).toBe(EXPECTED_RESULTS['german-amazon-de.pdf'].orderNumber);
     });
   });
 

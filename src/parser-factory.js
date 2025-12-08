@@ -11,8 +11,14 @@
  * - Provide unified interface for invoice parsing
  */
 
-const InvoicePreprocessor = require('./preprocessor');
+const LightPreprocessor = require('./preprocessors/light-preprocessor');
+const FormatSpecificPreprocessor = require('./preprocessors/format-specific-preprocessor');
 const LanguageDetector = require('./language-detector');
+const FormatClassifier = require('./format-classifier');
+const USParser = require('./parsers/us-parser');
+const EUBusinessParser = require('./parsers/eu-business-parser');
+const EUConsumerParser = require('./parsers/eu-consumer-parser');
+// Fallback parsers
 const SpanishParser = require('./parsers/spanish-parser');
 const GermanParser = require('./parsers/german-parser');
 const EnglishParser = require('./parsers/english-parser');
@@ -27,6 +33,20 @@ const BaseParser = require('./parsers/base-parser');
 
 class ParserFactory {
   /**
+   * Classify the format of invoice text
+   * @param {string} text - Preprocessed text
+   * @returns {Object} - Format classification result
+   */
+  static classifyFormat(text) {
+    try {
+      return FormatClassifier.classify(text);
+    } catch (error) {
+      console.warn('Format classification failed:', error.message);
+      return null;
+    }
+  }
+
+  /**
    * Parse invoice using the three-stage pipeline
    * @param {string} rawText - Raw PDF text content
    * @param {Object} options - Parsing options
@@ -36,29 +56,53 @@ class ParserFactory {
     const startTime = Date.now();
 
     try {
-      // Stage 1: Preprocess the text
+      // Stage 1: Light preprocessing
       const preprocessStart = Date.now();
-      const preprocessedText = InvoicePreprocessor.preprocess(rawText);
+      const lightProcessedText = LightPreprocessor.preprocess(rawText);
+
+      // Stage 2: Classify format
+      const formatClassification = this.classifyFormat(lightProcessedText);
+
+      // Stage 3: Format-specific preprocessing
+      const preprocessedText = FormatSpecificPreprocessor.preprocess(lightProcessedText, formatClassification?.format || 'amazon.com');
       const preprocessTime = Date.now() - preprocessStart;
 
       if (options.debug) {
         console.log('🔧 Preprocessed text length:', preprocessedText.length);
         console.log('🔧 Preprocessed text sample:', preprocessedText.substring(0, 200) + '...');
+        console.log('🎯 Format classification:', formatClassification);
       }
 
-      // Stage 2: Detect language
-      const languageStart = Date.now();
-      const languageDetection = LanguageDetector.detect(preprocessedText);
-      const languageTime = Date.now() - languageStart;
+      // Stage 4: Route to appropriate format-specific parser
+      const routingStart = Date.now();
+      const parser = this.createParserFromClassification(formatClassification);
 
-      if (options.debug) {
-        console.log('🌍 Language detection:', languageDetection);
+      // Fallback to language detection if format routing fails
+      let languageDetection = null;
+      let fallbackUsed = false;
+
+      if (!parser) {
+        console.log('🔄 Format routing failed, falling back to language detection');
+        languageDetection = LanguageDetector.detect(preprocessedText);
+        fallbackUsed = true;
+
+        if (options.debug) {
+          console.log('🌍 Language detection (fallback):', languageDetection);
+        }
       }
 
-      // Stage 3: Parse with appropriate language-specific parser
+      const routingTime = Date.now() - routingStart;
+
+      // Stage 5: Parse with appropriate parser
       const parseStart = Date.now();
-      const parser = this.createParser(languageDetection.language);
-      const invoice = parser.extract(preprocessedText);
+      const invoice = parser ? parser.extract(preprocessedText, {
+        format: formatClassification?.format,
+        subtype: formatClassification?.subtype,
+        classification: formatClassification
+      }) : this.createParser(languageDetection.language).extract(preprocessedText, {
+        format: formatClassification?.format,
+        language: languageDetection.language
+      });
       const parseTime = Date.now() - parseStart;
 
       const totalTime = Date.now() - startTime;
@@ -67,12 +111,18 @@ class ParserFactory {
       const extractionMetrics = this.calculateExtractionMetrics(invoice);
 
       // Add metadata
-      invoice.languageDetection = languageDetection;
+      if (languageDetection) {
+        invoice.languageDetection = languageDetection;
+      }
+      invoice.formatClassification = formatClassification;
       invoice.processingMetadata = {
-        pipeline: 'three-stage',
-        preprocessing: 'completed',
-        languageDetection: languageDetection.language,
-        parser: parser.constructor.name,
+        pipeline: fallbackUsed ? 'legacy-fallback' : 'format-routing',
+        lightPreprocessing: 'completed',
+        formatClassification: formatClassification?.format || 'unknown',
+        subtypeClassification: formatClassification?.subtype || 'none',
+        formatSpecificPreprocessing: 'completed',
+        routingMethod: fallbackUsed ? 'language-fallback' : 'format-routing',
+        parser: parser ? parser.constructor.name : 'unknown',
         timestamp: new Date().toISOString()
       };
 
@@ -80,17 +130,17 @@ class ParserFactory {
       invoice.performanceMetrics = {
         totalProcessingTime: totalTime,
         preprocessingTime: preprocessTime,
-        languageDetectionTime: languageTime,
+        routingTime: routingTime,
         parsingTime: parseTime,
         extractionSuccess: extractionMetrics,
-        languageConfidence: languageDetection.confidence,
+        languageConfidence: languageDetection?.confidence || 0,
         textLength: rawText.length,
         processedTextLength: preprocessedText.length
       };
 
       if (options.debug) {
-        console.log('✅ Parsing completed with', parser.constructor.name);
-        console.log('📊 Performance:', `${totalTime}ms total, ${languageDetection.confidence} confidence`);
+        console.log('✅ Parsing completed with', parser ? parser.constructor.name : 'unknown parser');
+        console.log('📊 Performance:', `${totalTime}ms total`);
       }
 
       return invoice;
@@ -103,7 +153,12 @@ class ParserFactory {
       // Fallback to base parser for error recovery
       try {
         const fallbackParser = new BaseParser('Unknown', 'XX');
-        const preprocessedText = InvoicePreprocessor.preprocess(rawText);
+
+        // Use pipeline for fallback preprocessing
+        const lightText = LightPreprocessor.preprocess(rawText);
+        const classification = this.classifyFormat(lightText);
+        const preprocessedText = FormatSpecificPreprocessor.preprocess(lightText, classification?.format || 'amazon.com');
+
         const partialInvoice = fallbackParser.extractPartialInvoiceData(preprocessedText, error);
 
         if (partialInvoice.extractionMetadata.usable) {
@@ -128,7 +183,40 @@ class ParserFactory {
   }
 
   /**
-   * Create appropriate parser based on detected language
+   * Create appropriate parser based on format classification
+   * @param {Object} classification - Format classification result
+   * @returns {BaseParser} - Format-specific parser instance
+   */
+  static createParserFromClassification(classification) {
+    const { format, subtype } = classification;
+
+    // Route based on format and subtype
+    if (format === 'amazon.com') {
+      console.log('📍 Routing to US Parser');
+      return new USParser();
+    }
+
+    if (format === 'amazon.eu') {
+      if (subtype === 'business') {
+        console.log('📍 Routing to EU Business Parser');
+        return new EUBusinessParser();
+      } else if (subtype === 'consumer') {
+        console.log('📍 Routing to EU Consumer Parser');
+        return new EUConsumerParser();
+      } else {
+        // Fallback: try to detect from content or default to consumer
+        console.log('⚠️  Unknown EU subtype, defaulting to EU Consumer Parser');
+        return new EUConsumerParser();
+      }
+    }
+
+    // Fallback to language-based routing for unknown formats
+    console.warn(`⚠️  Unknown format '${format}', falling back to language detection`);
+    return null; // Will trigger fallback logic
+  }
+
+  /**
+   * LEGACY: Create appropriate parser based on detected language (for backward compatibility)
    * @param {string} language - Detected language code (ES, DE, EN, FR, IT, JP, CA, AU, CH, GB, etc.)
    * @returns {BaseParser} - Language-specific parser instance
    */
@@ -163,10 +251,15 @@ class ParserFactory {
 
   /**
    * Get available parsers
-   * @returns {Object} - Map of language codes to parser classes
+   * @returns {Object} - Map of format specifiers to parser classes
    */
   static getAvailableParsers() {
     return {
+      // New format-based parsers
+      'amazon.com': USParser,
+      'amazon.eu.business': EUBusinessParser,
+      'amazon.eu.consumer': EUConsumerParser,
+      // Legacy language-based parsers (for fallback)
       'ES': SpanishParser,
       'DE': GermanParser,
       'EN': EnglishParser,
@@ -186,7 +279,11 @@ class ParserFactory {
    * @returns {Object} - Results from all parsers
    */
   static async testAllParsers(rawText) {
-    const preprocessedText = InvoicePreprocessor.preprocess(rawText);
+    // Use new pipeline for testing
+    const lightText = LightPreprocessor.preprocess(rawText);
+    const classification = this.classifyFormat(lightText);
+    const preprocessedText = FormatSpecificPreprocessor.preprocess(lightText, classification?.format || 'amazon.com');
+
     const results = {};
 
     for (const [code, ParserClass] of Object.entries(this.getAvailableParsers())) {
@@ -221,12 +318,15 @@ class ParserFactory {
     };
 
     try {
-      // Test preprocessor
+      // Test new preprocessing pipeline
       const testText = 'Test Ã© text with € symbols';
-      const processed = InvoicePreprocessor.preprocess(testText);
+      const lightText = LightPreprocessor.preprocess(testText);
+      const classification = FormatClassifier.classify(testText);
+      const processed = FormatSpecificPreprocessor.preprocess(lightText, classification.format);
+
       results.components.preprocessor = {
         status: 'healthy',
-        details: `Processed "${testText}" to "${processed}"`
+        details: `Pipeline processed "${testText}" to "${processed}" (format: ${classification.format})`
       };
     } catch (error) {
       results.components.preprocessor = {

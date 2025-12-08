@@ -44,32 +44,41 @@ class AmazonInvoiceParser {
         }
 
         // Check file extension
-        if (!pdfPath.toLowerCase().endsWith('.pdf')) {
-          throw new Error(`Invalid file type. Expected PDF file: ${pdfPath}`);
+        if (!pdfPath.toLowerCase().endsWith('.pdf') && !pdfPath.toLowerCase().endsWith('.txt')) {
+          throw new Error(`Invalid file type. Expected PDF or TXT file: ${pdfPath}`);
         }
 
         if (!options.silent) {
-          console.log(`📄 Processing PDF: ${pdfPath}`);
+          console.log(`📄 Processing file: ${pdfPath}`);
         }
 
-        // Extract text from PDF using pdf-parse library
-        const dataBuffer = fs.readFileSync(pdfPath);
-        const data = await pdf(dataBuffer);
-        const rawInvoiceText = data.text;
+        let rawInvoiceText;
+        let pdfData = null;
+
+        // Handle text files directly (for testing)
+        if (pdfPath.toLowerCase().endsWith('.txt')) {
+          rawInvoiceText = fs.readFileSync(pdfPath, 'utf8');
+        } else {
+          // Extract text from PDF using pdf-parse library
+          const dataBuffer = fs.readFileSync(pdfPath);
+          pdfData = await pdf(dataBuffer);
+          rawInvoiceText = pdfData.text;
+        }
 
         // Use the new three-stage pipeline
         const invoice = await this.parserFactory.parseInvoice(rawInvoiceText, {
           debug: options.debug || false
         });
 
-        // Add PDF metadata to the invoice
+        // Add file metadata and raw text to the invoice
         if (invoice) {
           const stats = fs.statSync(pdfPath);
+          invoice.rawText = rawInvoiceText;
           invoice.pdfMetadata = {
             fileSize: stats.size,
             extractedAt: new Date().toISOString(),
-            extractionMethod: 'pdf-parse-library',
-            pages: data.numpages,
+            extractionMethod: pdfPath.toLowerCase().endsWith('.txt') ? 'text-file-direct' : 'pdf-parse-library',
+            pages: pdfPath.toLowerCase().endsWith('.txt') ? 1 : (pdfData ? pdfData.numpages : 1),
             textLength: rawInvoiceText.length
           };
         }
@@ -187,7 +196,7 @@ class AmazonInvoiceParser {
 
   getMockInvoiceData(pdfPath) {
     // Return mock invoice data directly for E2E testing
-    const fileName = pdfPath.split('/').pop();
+    const fileName = pdfPath.split('/').pop().replace('.txt', '.pdf');
 
     if (fileName === 'sample-invoice-5.pdf') {
       return {

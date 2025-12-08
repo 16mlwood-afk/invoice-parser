@@ -1,14 +1,7 @@
 /**
- * Invoice Preprocessor
+ * @deprecated Use light-preprocessor.js → format-classifier.js → format-specific-preprocessor.js pipeline instead
  *
- * First stage in the three-stage pipeline:
- * PDF Text → [1] Preprocessor → [2] Language Detector → [3] Language-Specific Parser → Invoice Data
- *
- * Responsibilities:
- * - Fix UTF-8 encoding issues (Ã©→é, â‚¬→€)
- * - Normalize whitespace (tabs, multiple spaces, line breaks)
- * - Fix hyphenated word splits across lines ("Sonic-\nare" → "Sonicare")
- * - Remove PDF artifacts
+ * This file kept for backwards compatibility only.
  */
 
 class InvoicePreprocessor {
@@ -16,21 +9,14 @@ class InvoicePreprocessor {
    * Main preprocessing function that applies all cleaning steps
    * @param {string} text - Raw PDF text content
    * @returns {string} - Cleaned and normalized text
+   * @deprecated Use new pipeline: light-preprocessor → format-classifier → format-specific-preprocessor
    */
   static preprocess(text) {
-    if (!text || typeof text !== 'string') {
-      return '';
-    }
+    console.warn('⚠️  Using deprecated InvoicePreprocessor. Update to new pipeline.');
 
-    let processed = text;
-
-    // Apply cleaning steps in sequence
-    processed = this.fixEncoding(processed);
-    processed = this.normalizeWhitespace(processed);
-    processed = this.fixLineBreaks(processed);
-    processed = this.removePdfArtifacts(processed);
-
-    return processed;
+    // Fallback to old behavior
+    const FormatSpecificPreprocessor = require('./format-specific-preprocessor.js');
+    return FormatSpecificPreprocessor.preprocess(text, 'amazon.eu'); // Default to EU
   }
 
   /**
@@ -129,8 +115,9 @@ class InvoicePreprocessor {
       .map(line => line.trim())
       .join('\n');
 
-    // Remove completely empty lines
-    normalized = normalized.replace(/^\n+/gm, '').replace(/\n+$/gm, '');
+    // Preserve up to 1 empty line at start and end for structural separation
+    // This helps maintain table structure in Spanish invoices
+    normalized = normalized.replace(/^\n{2,}/, '\n').replace(/\n{2,}$/, '\n');
 
     return normalized;
   }
@@ -173,7 +160,10 @@ class InvoicePreprocessor {
     cleaned = cleaned.replace(/Página\s+\d+\s+de\s+\d+/gi, ''); // Spanish
 
     // Remove form field artifacts (common in invoice PDFs)
-    cleaned = cleaned.replace(/\[.*?\]/g, ''); // Remove bracketed form fields
+    // Only remove empty brackets, checkboxes, or underscore lines (typical PDF form fields)
+    cleaned = cleaned.replace(/\[\s*\]/g, ''); // Empty brackets [ ]
+    cleaned = cleaned.replace(/\[\s*X\s*\]/gi, ''); // Checked boxes [X]
+    cleaned = cleaned.replace(/\[\s*_{3,}\s*\]/g, ''); // Underscore lines [___]
 
     // Remove excessive spaces again after artifact removal
     cleaned = cleaned.replace(/ {2,}/g, ' ').trim();
