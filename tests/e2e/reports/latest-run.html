@@ -1,0 +1,186 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E2E Test Report - 2025-12-08T00:24:28.239Z</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            border-left: 4px solid #007bff;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .metric {
+            text-align: center;
+            padding: 15px;
+            border-radius: 5px;
+            background: white;
+            border: 1px solid #ddd;
+        }
+        .metric.pass { border-color: #28a745; }
+        .metric.fail { border-color: #dc3545; }
+        .metric.total { border-color: #6c757d; }
+        .metric h3 {
+            margin: 0 0 10px 0;
+            font-size: 2em;
+            font-weight: bold;
+        }
+        .metric.pass h3 { color: #28a745; }
+        .metric.fail h3 { color: #dc3545; }
+        .metric.total h3 { color: #6c757d; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+        .accuracy-high { color: #28a745; }
+        .accuracy-medium { color: #ffc107; }
+        .accuracy-low { color: #dc3545; }
+        .recommendations {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 30px;
+        }
+        .recommendations ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .recommendations li {
+            margin-bottom: 10px;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>E2E Test Report</h1>
+        <p><strong>Generated:</strong> 2025-12-08T00:24:28.239Z</p>
+
+        <div class="summary">
+            <h2>Test Summary</h2>
+            <div class="summary-grid">
+                <div class="metric total">
+                    <h3>23</h3>
+                    <div>Total Tests</div>
+                </div>
+                <div class="metric pass">
+                    <h3>23</h3>
+                    <div>Passed</div>
+                </div>
+                <div class="metric fail">
+                    <h3>0</h3>
+                    <div>Failed</div>
+                </div>
+            </div>
+        </div>
+
+        <h2>Field-Level Accuracy Breakdown</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Field</th>
+                    <th>Accuracy</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+                        <tr>
+                            <td>orderNumber</td>
+                            <td>100.0%</td>
+                            <td class="accuracy-high">Excellent</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>total</td>
+                            <td>100.0%</td>
+                            <td class="accuracy-high">Excellent</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>subtotal</td>
+                            <td>100.0%</td>
+                            <td class="accuracy-high">Excellent</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>tax</td>
+                            <td>100.0%</td>
+                            <td class="accuracy-high">Excellent</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>shipping</td>
+                            <td>100.0%</td>
+                            <td class="accuracy-high">Excellent</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>items</td>
+                            <td>100.0%</td>
+                            <td class="accuracy-high">Excellent</td>
+                        </tr>
+                    
+            </tbody>
+        </table>
+
+        <div class="recommendations">
+            <h2>Recommendations for Parser Improvements</h2>
+            <ul>
+                <li>All tests passing with good accuracy - consider adding more edge cases</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>Report generated by E2E test suite for Amazon Invoice Parser</p>
+        </div>
+    </div>
+</body>
+</html>

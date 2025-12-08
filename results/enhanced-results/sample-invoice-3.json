@@ -1,0 +1,52 @@
+{
+  "orderNumber": "405-3589422-0433914",
+  "orderDate": "30.11.2025",
+  "items": [],
+  "subtotal": "110,31 € 190,27 €",
+  "shipping": "1,66 €",
+  "tax": null,
+  "total": "91,93 €",
+  "vendor": "Amazon",
+  "validation": {
+    "isValid": true,
+    "warnings": [
+      {
+        "type": "mathematical_inconsistency",
+        "severity": "low",
+        "message": "Complex order: Calculated total (1103119028.66) differs from extracted total (91.93) by 1103118936.73 (1199955332.0%) (multi-shipment order may have complex pricing)",
+        "fields": [
+          "subtotal",
+          "shipping",
+          "tax",
+          "total"
+        ]
+      },
+      {
+        "type": "invalid_currency_format",
+        "severity": "medium",
+        "message": "Invalid currency format in subtotal: 110,31 € 190,27 €",
+        "fields": [
+          "subtotal"
+        ]
+      },
+      {
+        "type": "no_items_found",
+        "severity": "medium",
+        "message": "No items were extracted from the invoice despite having a subtotal",
+        "fields": [
+          "items"
+        ]
+      }
+    ],
+    "errors": [],
+    "score": 85,
+    "summary": "3 validation issues found: 3 warnings"
+  },
+  "pdfMetadata": {
+    "fileSize": 121319,
+    "extractedAt": "2025-12-08T00:20:05.627Z",
+    "extractionMethod": "pdf-parse-library",
+    "pages": 2,
+    "textLength": 2167
+  }
+}

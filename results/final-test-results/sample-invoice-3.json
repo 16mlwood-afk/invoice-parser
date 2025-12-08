@@ -1,0 +1,36 @@
+{
+  "orderNumber": "405-3589422-0433914",
+  "orderDate": "30.11.2025",
+  "items": [],
+  "subtotal": null,
+  "shipping": "1,66 €",
+  "tax": null,
+  "total": "91,93 €",
+  "vendor": "Amazon",
+  "validation": {
+    "isValid": true,
+    "warnings": [
+      {
+        "type": "mathematical_inconsistency",
+        "severity": "medium",
+        "message": "Calculated total (1.66) differs from extracted total (91.93) by 90.27 (98.2%)",
+        "fields": [
+          "subtotal",
+          "shipping",
+          "tax",
+          "total"
+        ]
+      }
+    ],
+    "errors": [],
+    "score": 95,
+    "summary": "1 validation issue found: 1 warning"
+  },
+  "pdfMetadata": {
+    "fileSize": 121319,
+    "extractedAt": "2025-12-08T00:18:17.218Z",
+    "extractionMethod": "pdf-parse-library",
+    "pages": 2,
+    "textLength": 2167
+  }
+}

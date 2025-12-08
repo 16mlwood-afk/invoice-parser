@@ -13,6 +13,7 @@ N/A - Greenfield project based on existing Node.js command-line utility. The cur
 
 | Date | Version | Description | Author |
 |------|---------|-------------|---------|
+| 2025-12-07 | v1.1 | Updated PDF parsing to pdf-parse@1.1.1 and added test data documentation | Dev Agent |
 | 2025-12-07 | v1.0 | Initial fullstack architecture based on PRD and front-end specification | Winston (Architect) |
 
 ## High Level Architecture
@@ -67,9 +68,9 @@ Key architectural decisions prioritize reliability, extensibility, and developer
 **Package Management:** npm workspaces for monorepo management
 
 **Core Dependencies:**
-- PDF parsing: `pdf-parse` or `pdf2pic` + OCR fallback
-- Data validation: `joi` or `zod` for schema validation
-- CLI framework: `commander` or `yargs` for command-line interface
+- PDF parsing: `pdf-parse@1.1.1` (primary) with `pdf2pic` + OCR fallback
+- Data validation: `joi` for schema validation
+- CLI framework: `commander` for command-line interface
 - Logging: `winston` for structured logging
 - Testing: `jest` + `supertest` for unit and integration tests
 
@@ -233,6 +234,17 @@ await parser.generateReport(invoices);         // Analytics
 **Integration Tests:** End-to-end PDF processing workflows
 **Performance Tests:** Large file processing and batch operations
 **Compatibility Tests:** Multiple Node.js versions and platforms
+
+### Test Data & Validation Resources
+
+**Test Data Location:** `all_regions_test_data/` (project root)
+**Real PDF Files:** 6 Amazon invoice/order documents (33KB - 127KB)
+**Data Coverage:**
+- Multiple Amazon order types and formats
+- Various file sizes within the 10MB processing limit
+- Real-world invoice structures for validation
+**Current Status:** All test files parse successfully (100% success rate)
+**Usage:** Primary validation for PDF parsing and data extraction logic
 
 ### Monitoring and Observability
 

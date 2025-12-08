@@ -1,0 +1,33 @@
+{
+  "orderNumber": "403-6249903-6239533",
+  "orderDate": "21.10.2025",
+  "items": [],
+  "subtotal": null,
+  "shipping": null,
+  "tax": null,
+  "total": null,
+  "vendor": "Amazon",
+  "validation": {
+    "isValid": false,
+    "warnings": [],
+    "errors": [
+      {
+        "type": "missing_critical_field",
+        "severity": "high",
+        "message": "Critical field 'total' is missing",
+        "fields": [
+          "total"
+        ]
+      }
+    ],
+    "score": 80,
+    "summary": "1 validation issue found: 1 error"
+  },
+  "pdfMetadata": {
+    "fileSize": 98839,
+    "extractedAt": "2025-12-08T00:18:17.223Z",
+    "extractionMethod": "pdf-parse-library",
+    "pages": 1,
+    "textLength": 1733
+  }
+}

@@ -103,6 +103,9 @@ Thumbs.db
 *.swo
 *~
 
+# AI debug logs
+.ai/
+
 # Test data and reports
 test-results/
 all_regions_test_data/

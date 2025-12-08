@@ -7,11 +7,25 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "test": "node test.js",
-    "test-pdfs": "node test-real-pdfs.js",
+    "test": "jest --config config/jest.config.unit.js",
+    "test:unit": "jest --config config/jest.config.unit.js",
+    "test:integration": "jest --config config/jest.config.integration.js",
+    "test:all": "jest --config config/jest.config.unit.js && jest --config config/jest.config.integration.js",
+    "test:watch": "jest --config config/jest.config.unit.js --watch",
+    "test:coverage": "jest --config config/jest.config.unit.js --coverage",
+    "test:integration:coverage": "jest --config config/jest.config.integration.js --coverage",
+    "test:pdfs": "node scripts/test-real-pdfs.js",
+    "test:old": "node test.js",
+    "test:e2e": "jest tests/e2e --verbose",
+    "test:e2e:watch": "jest tests/e2e --watch",
+    "test:e2e:coverage": "jest tests/e2e --coverage",
+    "test:e2e:report": "jest tests/e2e --json --outputFile=tests/e2e/reports/latest-run.json && node tests/e2e/generate-report.js",
     "start": "node index.js",
-    "lint": "echo 'No linting configured yet'",
-    "build": "echo 'No build process required'"
+    "lint": "eslint index.js scripts/*.js",
+    "build": "echo 'No build process required'",
+    "bmad:refresh": "echo 'Use: bmad install -f -i opencode'",
+    "bmad:list": "echo 'Use: bmad status'",
+    "bmad:validate": "echo 'Use: bmad status && echo Configuration validated'"
   },
   "keywords": [
     "amazon",
@@ -27,12 +41,16 @@
   "dependencies": {
     "commander": "^11.1.0",
     "joi": "^17.9.2",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^1.1.1",
+    "pdf2pic": "^3.2.0",
     "winston": "^3.8.2"
   },
   "directories": {
     "doc": "docs"
   },
   "devDependencies": {
+    "eslint": "^8.57.0",
     "jest": "^29.6.1"
   }
 }

@@ -1,0 +1,52 @@
+{
+  "orderNumber": "111-2536880-6683414",
+  "orderDate": "November 8, 2025",
+  "items": [],
+  "subtotal": "$1,078",
+  "shipping": null,
+  "tax": "$1,078.77",
+  "total": "$3,269.00",
+  "vendor": "Amazon",
+  "validation": {
+    "isValid": true,
+    "warnings": [
+      {
+        "type": "mathematical_inconsistency",
+        "severity": "medium",
+        "message": "Calculated total (2156.77) differs from extracted total (3269.00) by 1112.23 (34.0%)",
+        "fields": [
+          "subtotal",
+          "shipping",
+          "tax",
+          "total"
+        ]
+      },
+      {
+        "type": "invalid_currency_format",
+        "severity": "medium",
+        "message": "Invalid currency format in subtotal: $1,078",
+        "fields": [
+          "subtotal"
+        ]
+      },
+      {
+        "type": "no_items_found",
+        "severity": "medium",
+        "message": "No items were extracted from the invoice despite having a subtotal",
+        "fields": [
+          "items"
+        ]
+      }
+    ],
+    "errors": [],
+    "score": 85,
+    "summary": "3 validation issues found: 3 warnings"
+  },
+  "pdfMetadata": {
+    "fileSize": 34275,
+    "extractedAt": "2025-12-08T00:20:48.689Z",
+    "extractionMethod": "pdf-parse-library",
+    "pages": 3,
+    "textLength": 3164
+  }
+}

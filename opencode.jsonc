@@ -1,0 +1,255 @@
+{
+  "instructions": [
+    ".bmad-core/core-config.yaml"
+  ],
+  "agents": {
+    "analyst": {
+      "prompt": {
+        "file": ".bmad-core/agents/analyst.md"
+      },
+      "mode": "all",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      },
+      "description": "Market research, competitive analysis, and brainstorming sessions"
+    },
+    "architect": {
+      "prompt": {
+        "file": ".bmad-core/agents/architect.md"
+      },
+      "mode": "all",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      },
+      "description": "System architecture design and technical planning"
+    },
+    "bmad-master": {
+      "prompt": {
+        "file": ".bmad-core/agents/bmad-master.md"
+      },
+      "mode": "primary",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      },
+      "description": "Orchestrator for complex multi-agent tasks and BMad method guidance"
+    },
+    "dev": {
+      "prompt": {
+        "file": ".bmad-core/agents/dev.md"
+      },
+      "mode": "all",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      },
+      "description": "Implementation of stories, tasks, and code changes"
+    },
+    "pm": {
+      "prompt": {
+        "file": ".bmad-core/agents/pm.md"
+      },
+      "mode": "all",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      },
+      "description": "Product planning, PRD creation, and requirements management"
+    },
+    "po": {
+      "prompt": {
+        "file": ".bmad-core/agents/po.md"
+      },
+      "mode": "all",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      },
+      "description": "Story management, validation, and acceptance criteria"
+    },
+    "qa": {
+      "prompt": {
+        "file": ".bmad-core/agents/qa.md"
+      },
+      "mode": "all",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      },
+      "description": "Quality assurance, testing strategies, and quality gates"
+    },
+    "sm": {
+      "prompt": {
+        "file": ".bmad-core/agents/sm.md"
+      },
+      "mode": "all",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      },
+      "description": "Sprint management and story drafting"
+    },
+    "ux-expert": {
+      "prompt": {
+        "file": ".bmad-core/agents/ux-expert.md"
+      },
+      "mode": "all",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      },
+      "description": "User experience design and front-end specifications"
+    }
+  },
+  "commands": {
+    "advanced-elicitation": {
+      "template": {
+        "file": ".bmad-core/tasks/advanced-elicitation.md"
+      },
+      "description": "Advanced requirements elicitation techniques"
+    },
+    "apply-qa-fixes": {
+      "template": {
+        "file": ".bmad-core/tasks/apply-qa-fixes.md"
+      },
+      "description": "Apply quality assurance fixes and improvements"
+    },
+    "brownfield-create-epic": {
+      "template": {
+        "file": ".bmad-core/tasks/brownfield-create-epic.md"
+      },
+      "description": "Create epics for brownfield projects"
+    },
+    "brownfield-create-story": {
+      "template": {
+        "file": ".bmad-core/tasks/brownfield-create-story.md"
+      },
+      "description": "Create stories for brownfield projects"
+    },
+    "correct-course": {
+      "template": {
+        "file": ".bmad-core/tasks/correct-course.md"
+      },
+      "description": "Course correction and project adjustments"
+    },
+    "create-brownfield-story": {
+      "template": {
+        "file": ".bmad-core/tasks/create-brownfield-story.md"
+      },
+      "description": "Create brownfield stories with legacy considerations"
+    },
+    "create-deep-research-prompt": {
+      "template": {
+        "file": ".bmad-core/tasks/create-deep-research-prompt.md"
+      },
+      "description": "Create detailed research prompts"
+    },
+    "create-doc": {
+      "template": {
+        "file": ".bmad-core/tasks/create-doc.md"
+      },
+      "description": "Create documentation using BMad templates"
+    },
+    "create-next-story": {
+      "template": {
+        "file": ".bmad-core/tasks/create-next-story.md"
+      },
+      "description": "Create the next story in the development cycle"
+    },
+    "document-project": {
+      "template": {
+        "file": ".bmad-core/tasks/document-project.md"
+      },
+      "description": "Document project details and requirements"
+    },
+    "execute-checklist": {
+      "template": {
+        "file": ".bmad-core/tasks/execute-checklist.md"
+      },
+      "description": "Execute checklists for quality assurance"
+    },
+    "facilitate-brainstorming-session": {
+      "template": {
+        "file": ".bmad-core/tasks/facilitate-brainstorming-session.md"
+      },
+      "description": "Facilitate brainstorming sessions"
+    },
+    "generate-ai-frontend-prompt": {
+      "template": {
+        "file": ".bmad-core/tasks/generate-ai-frontend-prompt.md"
+      },
+      "description": "Generate AI frontend prompts"
+    },
+    "index-docs": {
+      "template": {
+        "file": ".bmad-core/tasks/index-docs.md"
+      },
+      "description": "Index and organize documentation"
+    },
+    "kb-mode-interaction": {
+      "template": {
+        "file": ".bmad-core/tasks/kb-mode-interaction.md"
+      },
+      "description": "Knowledge base mode interactions"
+    },
+    "nfr-assess": {
+      "template": {
+        "file": ".bmad-core/tasks/nfr-assess.md"
+      },
+      "description": "Assess non-functional requirements"
+    },
+    "qa-gate": {
+      "template": {
+        "file": ".bmad-core/tasks/qa-gate.md"
+      },
+      "description": "Quality assurance gate management"
+    },
+    "review-story": {
+      "template": {
+        "file": ".bmad-core/tasks/review-story.md"
+      },
+      "description": "Review stories for quality and completeness"
+    },
+    "risk-profile": {
+      "template": {
+        "file": ".bmad-core/tasks/risk-profile.md"
+      },
+      "description": "Create risk profiles for stories"
+    },
+    "shard-doc": {
+      "template": {
+        "file": ".bmad-core/tasks/shard-doc.md"
+      },
+      "description": "Shard documents for better organization"
+    },
+    "test-design": {
+      "template": {
+        "file": ".bmad-core/tasks/test-design.md"
+      },
+      "description": "Design test strategies and plans"
+    },
+    "trace-requirements": {
+      "template": {
+        "file": ".bmad-core/tasks/trace-requirements.md"
+      },
+      "description": "Trace requirements to implementation"
+    },
+    "validate-next-story": {
+      "template": {
+        "file": ".bmad-core/tasks/validate-next-story.md"
+      },
+      "description": "Validate the next story in the sequence"
+    }
+  }
+}
