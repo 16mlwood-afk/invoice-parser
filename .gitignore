@@ -108,5 +108,7 @@ Thumbs.db
 
 # Test data and reports
 test-results/
-all_regions_test_data/
-invoice-report.json
+tests/fixtures/
+output/
+*.report.json
+*.test-results.json

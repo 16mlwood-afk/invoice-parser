@@ -3,9 +3,9 @@ module.exports = {
   displayName: 'integration',
   testEnvironment: 'node',
   testMatch: [
-    '<rootDir>/test/integration/**/*.test.js'
+    '<rootDir>/tests/integration/**/*.test.js'
   ],
-  setupFilesAfterEnv: ['<rootDir>/test/integration/setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/tests/integration/setup.js'],
   testTimeout: 30000, // Longer timeout for integration tests
   verbose: true
 };

@@ -20,9 +20,12 @@ module.exports = {
     }
   },
   testMatch: [
-    '<rootDir>/test/**/*.test.js',
-    '<rootDir>/test/**/*.spec.js'
+    '<rootDir>/tests/**/*.test.js',
+    '<rootDir>/tests/**/*.spec.js'
+  ],
+  testPathIgnorePatterns: [
+    '<rootDir>/tests/fixtures/'
   ],
   verbose: true,
-  setupFilesAfterEnv: ['<rootDir>/test/setup.js']
+  setupFilesAfterEnv: ['<rootDir>/tests/unit/setup.js']
 };

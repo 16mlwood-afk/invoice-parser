@@ -8,22 +8,39 @@ This project follows a **monorepo structure** optimized for a Node.js CLI applic
 
 ```
 /
-├── .bmad-core/              # BMAD Method configuration and agents
-│   ├── agents/             # AI agent definitions
-│   ├── tasks/              # Task templates and workflows
-│   ├── templates/          # Document and code generation templates
-│   ├── checklists/         # Quality assurance checklists
-│   ├── data/               # Knowledge base and reference data
-│   └── workflows/          # Development workflow definitions
-├── .ai/                    # AI-generated debug logs and analysis
-├── docs/                   # Documentation (see docs structure below)
-├── node_modules/           # Dependencies (npm)
+├── .bmad-core/             # BMAD Method configuration and agents
+│   ├── agents/            # AI agent definitions
+│   ├── tasks/             # Task templates and workflows
+│   ├── templates/         # Document and code generation templates
+│   ├── checklists/        # Quality assurance checklists
+│   ├── data/              # Knowledge base and reference data
+│   ├── workflows/         # Development workflow definitions
+│   └── opencode.jsonc     # OpenCode configuration
+├── src/                   # Source code
+│   ├── parsers/           # Language-specific parsers
+│   ├── parser/            # Core parsing logic
+│   ├── reports/           # Report generation
+│   ├── preprocessor.js    # PDF preprocessing
+│   ├── language-detector.js # Language detection
+│   └── types/             # Type definitions and schemas
+├── tests/                 # Test suites
+│   ├── unit/              # Unit tests
+│   ├── integration/       # Integration tests
+│   ├── e2e/               # End-to-end tests
+│   └── fixtures/          # Test data and fixtures
+├── output/                # Generated output and results
+├── config/                # Configuration files
+│   ├── jest.config.js     # Jest configuration
+│   ├── jest.config.unit.js # Unit test configuration
+│   └── jest.config.integration.js # Integration test configuration
+├── scripts/               # Utility scripts
+├── examples/              # Usage examples
+├── docs/                  # Documentation (see docs structure below)
 ├── .gitignore             # Git ignore patterns
 ├── .eslintrc.js           # ESLint configuration
 ├── package.json           # Project metadata and scripts
 ├── package-lock.json      # Dependency lock file
 ├── index.js               # Main CLI application entry point
-├── test-real-pdfs.js      # PDF testing utilities
 └── README.md              # Project documentation
 ```
 

@@ -6,6 +6,13 @@ const Validation = require('./validation');
 const ErrorRecovery = require('./error-recovery');
 
 class AmazonInvoiceParser {
+  // Expose error level constants
+  static ERROR_LEVELS = {
+    CRITICAL: 'critical',
+    RECOVERABLE: 'recoverable',
+    INFO: 'info'
+  };
+
   constructor() {
     // Use new three-stage pipeline
     this.parserFactory = ParserFactory;
@@ -13,7 +20,10 @@ class AmazonInvoiceParser {
     // Keep legacy modules for backward compatibility
     this.extraction = new Extraction();
     this.validation = new Validation();
-    this.errorRecovery = new ErrorRecovery();
+    this.errorRecovery = new ErrorRecovery(this.extraction);
+
+    // Expose schema for tests
+    this.invoiceSchema = this.validation.invoiceSchema;
   }
 
   async parseInvoice(pdfPath, options = {}) {
@@ -73,39 +83,49 @@ class AmazonInvoiceParser {
         const categorizedError = this.errorRecovery.categorizeError(error, 'invoice-processing');
 
         if (categorizedError.recoverable && !categorizedError.type.includes('file_access')) {
-          console.log('🔄 Attempting error recovery with fallback parsing...');
+          console.log('🔄 Attempting error recovery with partial data extraction...');
 
           try {
-            // Try mock data fallback using the pipeline
-            const mockText = this.getMockInvoiceText(pdfPath);
-            const partialInvoice = await this.parserFactory.parseInvoice(mockText, { debug: false });
+            // Try partial data extraction
+            const partialData = this.extractPartialInvoiceData('', error);
 
-            if (partialInvoice && partialInvoice.extractionMetadata?.usable) {
-              console.log(`✅ Recovery successful with pipeline`);
-              console.log(`💡 Pipeline recovered ${partialInvoice.extractionMetadata.confidence ? Object.keys(partialInvoice.extractionMetadata.confidence).length : 0} fields`);
+            if (partialData && partialData.extractionMetadata?.usable) {
+              console.log(`✅ Recovery successful with partial extraction`);
+              console.log(`💡 Extracted ${partialData.extractionMetadata.confidence ? Object.keys(partialData.extractionMetadata.confidence).length : 0} fields`);
 
               // Add error and recovery metadata
-              partialInvoice.errorRecovery = {
+              partialData.errorRecovery = {
                 originalError: categorizedError,
                 recoverySuggestions: [{
-                  action: 'pipeline_fallback',
-                  description: 'Used three-stage pipeline with mock data',
+                  action: 'partial_extraction',
+                  description: 'Used partial data extraction from error recovery',
                   priority: 'medium'
                 }],
                 recoveryTimestamp: new Date().toISOString()
               };
 
               // Add PDF metadata
-              const stats = fs.statSync(pdfPath);
-              partialInvoice.pdfMetadata = {
-                fileSize: stats.size,
-                extractedAt: new Date().toISOString(),
-                extractionMethod: 'pdf-parse-library-fallback',
-                pages: 1,
-                textLength: mockText.length
-              };
+              try {
+                const stats = fs.statSync(pdfPath);
+                partialData.pdfMetadata = {
+                  fileSize: stats.size,
+                  extractedAt: new Date().toISOString(),
+                  extractionMethod: 'partial-extraction-fallback',
+                  pages: 0,
+                  textLength: 0
+                };
+              } catch (statsError) {
+                // File might not exist, add minimal metadata
+                partialData.pdfMetadata = {
+                  fileSize: 0,
+                  extractedAt: new Date().toISOString(),
+                  extractionMethod: 'partial-extraction-fallback',
+                  pages: 0,
+                  textLength: 0
+                };
+              }
 
-              resolve(partialInvoice);
+              resolve(partialData);
               return;
             }
           } catch (recoveryError) {
@@ -736,6 +756,36 @@ Zahlungsmethode: Kreditkarte ****5678
     }
 
     return results;
+  }
+
+  /**
+   * Extract partial invoice data when full parsing fails
+   * @param {string} text - Invoice text content
+   * @param {Error} originalError - The error that caused full extraction to fail
+   * @returns {Object} Partial invoice data with confidence scores and error info
+   */
+  extractPartialInvoiceData(text, originalError) {
+    return this.errorRecovery.extractPartialInvoiceData(text, originalError);
+  }
+
+  /**
+   * Categorize an error by type and severity
+   * @param {Error} error - The error to categorize
+   * @param {string} context - The context where the error occurred
+   * @returns {Object} Categorized error information
+   */
+  categorizeError(error, context) {
+    return this.errorRecovery.categorizeError(error, context);
+  }
+
+  /**
+   * Generate recovery suggestions for an error
+   * @param {Object} categorizedError - The categorized error
+   * @param {Object} partialData - Partial data that was extracted
+   * @returns {Array} Array of recovery suggestions
+   */
+  generateRecoverySuggestions(categorizedError, partialData) {
+    return this.errorRecovery.generateRecoverySuggestions(categorizedError, partialData);
   }
 }
 

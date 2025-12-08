@@ -4,12 +4,16 @@ A Node.js utility to extract structured data from Amazon invoice PDFs. Companion
 
 ## Features
 
+- **Three-Stage Pipeline Architecture** - Advanced preprocessing, language detection, and language-specific parsing
 - **Structured Data Extraction** - Parses order numbers, dates, items, and amounts from Amazon invoices
-- **Multi-Currency Support** - Handles USD ($), EUR (€), GBP (£)
-- **Multi-Language Support** - English, German, French, and more
-- **Batch Processing** - Process multiple invoices at once
+- **Multi-Currency Support** - Handles USD ($), EUR (€), GBP (£), JPY (¥), CHF (CHF), CAD ($), AUD ($)
+- **Multi-Language Support** - 10+ languages and regional variants: English, German, French, Spanish, Italian, Japanese, Canadian French, Australian English, Swiss German, British English
+- **Performance Metrics** - Built-in parsing time tracking, confidence scoring, and extraction success reporting
+- **Batch Processing** - Process multiple invoices at once with comprehensive reporting
 - **JSON Export** - Structured output for integration with other tools
 - **Spending Reports** - Generate summaries and analytics
+- **Language Detection** - Automatic language identification with confidence scores
+- **Error Recovery** - Robust fallback mechanisms for partial data extraction
 
 ## Installation
 
@@ -232,23 +236,23 @@ The invoice parser provides a comprehensive CLI for processing invoices from the
 node index.js ./path/to/invoice.pdf
 
 # Parse and save to JSON file
-node index.js ./invoice.pdf --output ./results/invoice.json
+node index.js ./invoice.pdf --output ./output/invoice.json
 
 # Parse with custom options
-node index.js ./invoice.pdf --format json --output ./results/
+node index.js ./invoice.pdf --format json --output ./output/
 
 # Silent mode (no console output)
-node index.js ./invoice.pdf --silent --output ./results/invoice.json
+node index.js ./invoice.pdf --silent --output ./output/invoice.json
 ```
 
 #### Batch Processing
 
 ```bash
 # Process all PDFs in a directory
-node index.js ./invoices/ --output ./results/
+node index.js ./invoices/ --output ./output/
 
 # Process specific files
-node index.js invoice1.pdf invoice2.pdf invoice3.pdf --output ./batch-results/
+node index.js invoice1.pdf invoice2.pdf invoice3.pdf --output ./batch-output/
 
 # Process with custom output directory structure
 node index.js ./invoices/ --output-dir ./processed-invoices/
@@ -259,11 +263,12 @@ node index.js ./invoices/ --output-dir ./processed-invoices/
 | Option | Short | Description | Example |
 |--------|-------|-------------|---------|
 | `--output <file>` | `-o` | Output file path | `--output result.json` |
-| `--output-dir <dir>` | `-d` | Output directory | `--output-dir ./results/` |
+| `--output-dir <dir>` | `-d` | Output directory | `--output-dir ./output/` |
 | `--format <type>` | `-f` | Output format (json, csv, text) | `--format csv` |
+| `--verbose` | `-v` | Show detailed performance metrics | `--verbose` |
 | `--silent` | `-s` | Suppress console output | `--silent` |
 | `--help` | `-h` | Show help information | `--help` |
-| `--version` | `-v` | Show version number | `--version` |
+| `--version` | `-V` | Show version number | `--version` |
 
 #### Examples
 
@@ -448,7 +453,7 @@ The parser includes comprehensive test suites:
 - **Integration tests**: Test end-to-end PDF processing
 - **Edge case tests**: Test boundary conditions and error scenarios
 
-Test data is located in the `test_data/` directory and includes samples from different Amazon marketplaces (US, DE, FR, UK).
+Test data is located in the `tests/fixtures/` directory and includes samples from different Amazon marketplaces (US, DE, FR, UK).
 
 #### QA Status (Week 1)
 
@@ -485,22 +490,60 @@ Test data is located in the `test_data/` directory and includes samples from dif
     }
   ],
   "subtotal": "$89.98",
+  "shipping": "$0.00",
   "tax": "$7.19",
   "total": "$97.17",
-  "vendor": "Amazon"
+  "vendor": "Amazon",
+  "languageDetection": {
+    "language": "EN",
+    "confidence": 0.95,
+    "evidence": "Detected English patterns"
+  },
+  "processingMetadata": {
+    "pipeline": "three-stage",
+    "languageDetection": "EN",
+    "parser": "EnglishParser",
+    "timestamp": "2023-12-15T10:30:00.000Z"
+  },
+  "performanceMetrics": {
+    "totalProcessingTime": 45,
+    "languageDetectionTime": 5,
+    "parsingTime": 35,
+    "extractionSuccess": {
+      "overall": 1.0,
+      "fields": {
+        "orderNumber": true,
+        "orderDate": true,
+        "items": true,
+        "subtotal": true,
+        "shipping": true,
+        "tax": true,
+        "total": true
+      }
+    },
+    "languageConfidence": 0.95
+  }
 }
 ```
 
 ## Data Fields Extracted
 
+### Core Invoice Data
 - **orderNumber**: Amazon order ID (e.g., "123-4567890-1234567")
-- **orderDate**: Order placement date
+- **orderDate**: Order placement date (localized formats supported)
 - **items**: Array of purchased items with descriptions and prices
 - **subtotal**: Pre-tax amount
-- **shipping**: Shipping cost
-- **tax**: Tax/VAT amount
-- **total**: Grand total
+- **shipping**: Shipping/delivery cost
+- **tax**: Tax/VAT/GST amount (localized tax types)
+- **total**: Grand total amount
 - **vendor**: Always "Amazon"
+
+### Metadata Fields
+- **languageDetection**: Detected language with confidence score
+- **processingMetadata**: Pipeline execution details and timestamps
+- **performanceMetrics**: Processing time, extraction success rates
+- **pdfMetadata**: PDF file information (when applicable)
+- **validation**: Data quality scoring and error reporting
 
 ## Integration with Amazon Invoice Extractor
 
@@ -516,16 +559,42 @@ This parser works seamlessly with the [Amazon Invoice Extractor](https://github.
 
 ```
 /
-├── index.js              # Main parser class
-├── test.js              # Unit tests with mock data
-├── test-real-pdfs.js    # Batch processing test
-├── docs/                # Documentation
-│   ├── architecture.md  # Fullstack architecture
-│   ├── prd.md          # Product requirements
-│   └── stories/        # User stories
-├── all_regions_test_data/  # Sample invoice PDFs
-├── package.json        # Project configuration
-└── README.md           # This file
+├── index.js                    # Main entry point
+├── src/                       # Source code
+│   ├── index.js              # Module exports
+│   ├── parser-factory.js     # Three-stage pipeline orchestrator
+│   ├── language-detector.js  # Language detection engine
+│   ├── preprocessor.js       # Text preprocessing utilities
+│   ├── parsers/              # Language-specific parsers (10 parsers)
+│   │   ├── base-parser.js    # Common parser functionality
+│   │   ├── english-parser.js # English (US/UK/AU)
+│   │   ├── german-parser.js  # German (DE/CH)
+│   │   ├── french-parser.js  # French (FR/CA)
+│   │   ├── spanish-parser.js # Spanish (ES)
+│   │   ├── italian-parser.js # Italian (IT)
+│   │   ├── japanese-parser.js # Japanese (JP)
+│   │   ├── canadian-french-parser.js # Canadian French
+│   │   ├── australian-parser.js # Australian English
+│   │   ├── swiss-parser.js   # Swiss German
+│   │   └── uk-parser.js      # British English
+│   ├── parser/               # Legacy parsing (backward compatibility)
+│   ├── cli/                  # Command-line interface
+│   ├── reports/              # Reporting utilities
+│   └── utils/                # Utility functions
+├── tests/                    # Test suites
+│   ├── unit/                 # Unit tests
+│   ├── integration/          # Integration tests
+│   ├── e2e/                  # End-to-end tests
+│   └── fixtures/             # Test data and fixtures
+├── docs/                     # Documentation
+│   ├── architecture/         # Architecture documentation
+│   ├── api/                  # API reference
+│   └── guides/               # Developer guides
+├── config/                   # Configuration files
+├── scripts/                  # Utility scripts
+├── examples/                 # Usage examples
+├── package.json              # Project configuration
+└── README.md                 # This file
 ```
 
 ### Available Scripts
@@ -538,17 +607,47 @@ This parser works seamlessly with the [Amazon Invoice Extractor](https://github.
 
 ## Current Status
 
-- ✅ **Data Extraction Logic**: Working (tested with mock data)
-- ✅ **Multi-Language Parsing**: English & German supported
-- ✅ **Batch Processing**: Multiple files at once
-- ✅ **Report Generation**: JSON summaries
-- ⚠️ **PDF Reading**: Mock implementation (PDF parsing library needs fixing)
+- ✅ **Three-Stage Pipeline**: Complete preprocessing → language detection → parsing pipeline
+- ✅ **Multi-Language Support**: 10 languages/regions with specialized parsers
+- ✅ **Multi-Currency Support**: 6 currencies (USD, EUR, GBP, JPY, CHF, CAD, AUD)
+- ✅ **Performance Metrics**: Built-in timing, confidence scoring, and success tracking
+- ✅ **Language Detection**: Automatic identification with confidence reporting
+- ✅ **Error Recovery**: Fallback parsing for partial data extraction
+- ✅ **Batch Processing**: Multiple files with comprehensive reporting
+- ✅ **CLI Enhancements**: Verbose mode with detailed metrics display
+- ⚠️ **PDF Processing**: Working with pdf-parse library (production ready)
+
+## Architecture Overview
+
+The Amazon Invoice Parser uses a sophisticated **three-stage pipeline architecture**:
+
+### Stage 1: Preprocessing
+- Text normalization and encoding fixes
+- Special character handling (€, ¥, etc.)
+- Line break and formatting cleanup
+
+### Stage 2: Language Detection
+- Pattern-based language identification
+- Confidence scoring for each language
+- Support for 10+ languages and regional variants
+
+### Stage 3: Language-Specific Parsing
+- Specialized parsers for each language/region
+- Currency-aware amount extraction
+- Localized date format handling
+- Tax terminology recognition
+
+### Key Features
+- **Automatic Fallback**: Unknown languages default to English parsing
+- **Performance Tracking**: Built-in metrics collection
+- **Error Recovery**: Partial data extraction when full parsing fails
+- **Extensible Design**: Easy addition of new languages and regions
 
 ## Dependencies
 
 - **commander**: CLI framework for command-line interface
 - **joi**: Data validation and schema validation
-- **winston**: Structured logging framework
+- **pdf-parse**: PDF text extraction library
 - **jest**: Testing framework (dev dependency)
 
 ## Limitations
@@ -559,11 +658,13 @@ This parser works seamlessly with the [Amazon Invoice Extractor](https://github.
 
 ## Future Enhancements
 
-- Fix PDF parsing library integration
 - Web interface for drag-and-drop PDF uploads
-- Export to CSV/Excel formats
-- Database integration
+- Export to additional formats (Excel, XML)
+- Database integration and storage
 - Multi-vendor support beyond Amazon
+- Machine learning-based language detection
+- OCR integration for scanned invoices
+- API server for web service integration
 
 ## Contributing
 

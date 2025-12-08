@@ -22,12 +22,13 @@ module.exports = {
     }
   },
   testMatch: [
-    '<rootDir>/test/**/*.test.js',
-    '<rootDir>/test/**/*.spec.js'
+    '<rootDir>/tests/unit/**/*.test.js',
+    '<rootDir>/tests/unit/**/*.spec.js'
   ],
   testPathIgnorePatterns: [
-    '<rootDir>/test/integration/'
+    '<rootDir>/tests/integration/',
+    '<rootDir>/tests/e2e/'
   ],
   verbose: true,
-  setupFilesAfterEnv: ['<rootDir>/test/setup.js']
+  setupFilesAfterEnv: ['<rootDir>/tests/unit/setup.js']
 };
