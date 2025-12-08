@@ -1,0 +1,17 @@
+Amazon.com Order Confirmation
+Order #111-2536880-6683414
+Order Placed: November 08, 2025
+
+Items Ordered:
+33 x Prismacolor Premier Colored Pencils, Soft Core, 48 Count - Ultra-Smooth, Durable, Vibrant Colors $32.69
+25 x Prismacolor Premier Colored Pencils, Soft Core, 48 Count - Ultra-Smooth, Durable, Vibrant Colors $32.69
+10 x Prismacolor Premier Colored Pencils, Soft Core, 48 Count - Ultra-Smooth, Durable, Vibrant Colors $32.69
+2 x Prismacolor Premier Colored Pencils, Soft Core, 48 Count - Ultra-Smooth, Durable, Vibrant Colors $32.69
+30 x Prismacolor Premier Colored Pencils, Soft Core, 48 Count - Ultra-Smooth, Durable, Vibrant Colors $32.69
+
+Subtotal: $3269.00
+Shipping: $0.00
+Tax: $0.00
+Grand Total: $3269.00
+
+Payment Method: Visa ****1234
