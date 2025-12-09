@@ -6,13 +6,16 @@ module.exports = {
   // Valid export formats and templates
   VALID_FORMATS: ['json', 'csv', 'pdf'],
   VALID_TEMPLATES: ['summary', 'detailed', 'financial'],
+  VALID_BATCH_FORMATS: ['json', 'csv'], // Formats supported for batch totals
 
   // Export limits
   LIMITS: {
     MAX_RECORDS: 5000,      // Maximum total records for any export
     PDF_MAX_INVOICES: 500,  // Maximum invoices for PDF export
     CSV_MAX_RECORDS: 5000,  // Maximum records for CSV export
-    WARNING_THRESHOLD: 4000 // Show warning when approaching limits
+    WARNING_THRESHOLD: 4000, // Show warning when approaching limits
+    MAX_JOBS_BATCH: 100,     // Maximum jobs to aggregate for batch totals
+    MAX_INVOICES_BATCH: 10000 // Maximum total invoices across all jobs for batch totals
   },
 
   // PDF Layout Constants
@@ -99,6 +102,35 @@ module.exports = {
     QUOTE: '"',
     ESCAPE: '"',
     NEWLINE: '\n'
+  },
+
+  // Batch Totals Configuration
+  BATCH_TOTALS: {
+    // CSV headers for batch totals export
+    CSV_HEADERS: [
+      'Job ID',
+      'Job Created Date',
+      'Job Completed Date',
+      'Total Invoices',
+      'Successful Invoices',
+      'Failed Invoices',
+      'Total Amount',
+      'Total Subtotal',
+      'Total Shipping',
+      'Total Tax',
+      'Total Discount',
+      'Currency',
+      'Success Rate (%)'
+    ],
+
+    // Summary calculation settings
+    CURRENCY_PRECISION: 2, // Decimal places for currency calculations
+    PERCENTAGE_PRECISION: 1, // Decimal places for percentage calculations
+
+    // Aggregation settings
+    AGGREGATE_BY_CURRENCY: true, // Whether to aggregate by currency
+    INCLUDE_JOB_METADATA: true, // Whether to include job creation/completion dates
+    INCLUDE_INVOICE_BREAKDOWN: true // Whether to include per-invoice breakdown in JSON
   },
 
   // Filename generation

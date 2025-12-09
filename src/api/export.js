@@ -1,7 +1,7 @@
 // API endpoint for exporting job results in various formats
 const ProcessingAPI = require('./processing');
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
-const { transformResultsForExport } = require('../utils/result-transformer');
+const { transformResultsForExport, calculateBatchTotals } = require('../utils/result-transformer');
 const EXPORT_CONFIG = require('../../config/export.config');
 const PDFReportGenerator = require('../utils/pdf-report-generator');
 const { stringify } = require('csv-stringify');
@@ -9,10 +9,10 @@ const { stringify } = require('csv-stringify');
 module.exports = (app, testProcessingAPI = null) => {
   // Allow dependency injection for testing - prioritize testProcessingAPI
   const processingAPI = testProcessingAPI || new ProcessingAPI();
-  // GET /api/export/:jobId?format=json|csv|pdf&template=summary|detailed|financial - Export job results
+  // GET /api/export/:jobId?format=json|csv|pdf&template=summary|detailed|financial&includeBatchTotals=false - Export job results
   app.get('/api/export/:jobId', async (req, res) => {
     const { jobId } = req.params;
-    const { format = 'json', template = 'detailed' } = req.query;
+    const { format = 'json', template = 'detailed', includeBatchTotals = 'false' } = req.query;
 
 
     try {
@@ -157,13 +157,33 @@ module.exports = (app, testProcessingAPI = null) => {
       switch (format) {
         case 'json':
           // Return complete JSON structure matching CLI output
-          content = JSON.stringify({
+          const jsonResponse = {
             jobId: jobId,
             exportDate: new Date().toISOString(),
             summary: summary,
             results: transformedResults,
             errors: errors
-          }, null, 2);
+          };
+
+          // Optionally include batch totals summary if requested
+          if (includeBatchTotals === 'true') {
+            try {
+              // Calculate totals for this single job
+              const jobBatchTotals = calculateBatchTotals([jobStatus], [rawResults]);
+              jsonResponse.batchTotals = jobBatchTotals.jobs[0]; // Single job summary
+              jsonResponse.batchTotalsSummary = {
+                totalJobs: 1,
+                totalInvoices: jobBatchTotals.totalInvoices,
+                totals: jobBatchTotals.totals,
+                currencies: jobBatchTotals.currencies
+              };
+            } catch (error) {
+              console.warn('Failed to calculate batch totals for job:', error.message);
+              // Continue without batch totals rather than failing the entire export
+            }
+          }
+
+          content = JSON.stringify(jsonResponse, null, 2);
           contentType = 'application/json';
           break;
 
@@ -270,6 +290,208 @@ module.exports = (app, testProcessingAPI = null) => {
       // Generic error response
       res.status(500).json({
         error: 'Export failed',
+        message: EXPORT_CONFIG.ERRORS.MESSAGES.EXPORT_FAILED,
+        errorCode: EXPORT_CONFIG.ERRORS.CODES.EXPORT_ERROR
+      });
+    }
+  });
+
+  // POST /api/export/batch-totals - Get combined totals across multiple jobs
+  app.post('/api/export/batch-totals', async (req, res) => {
+    const { jobIds, format = 'json' } = req.body;
+
+    try {
+      // Validate request body
+      if (!jobIds || !Array.isArray(jobIds) || jobIds.length === 0) {
+        return res.status(400).json({
+          error: 'Invalid request',
+          message: 'jobIds must be a non-empty array of job IDs',
+          errorCode: EXPORT_CONFIG.ERRORS.CODES.VALIDATION_ERROR
+        });
+      }
+
+      // Validate jobIds format
+      for (const jobId of jobIds) {
+        if (!jobId || typeof jobId !== 'string' || !jobId.startsWith('job_')) {
+          return res.status(400).json({
+            error: 'Invalid job ID',
+            message: `Invalid job ID format: ${jobId}. Job IDs must start with "job_"`,
+            errorCode: EXPORT_CONFIG.ERRORS.CODES.VALIDATION_ERROR
+          });
+        }
+      }
+
+      // Validate format
+      if (!EXPORT_CONFIG.VALID_BATCH_FORMATS.includes(format)) {
+        return res.status(400).json({
+          error: 'Invalid format',
+          message: `Format must be one of: ${EXPORT_CONFIG.VALID_BATCH_FORMATS.join(', ')}`,
+          errorCode: EXPORT_CONFIG.ERRORS.CODES.INVALID_FORMAT
+        });
+      }
+
+      // Check batch limits
+      if (jobIds.length > EXPORT_CONFIG.LIMITS.MAX_JOBS_BATCH) {
+        return res.status(413).json({
+          error: 'Batch limit exceeded',
+          message: `Maximum ${EXPORT_CONFIG.LIMITS.MAX_JOBS_BATCH} jobs allowed per batch request`,
+          errorCode: EXPORT_CONFIG.ERRORS.CODES.LIMIT_EXCEEDED,
+          details: {
+            maxAllowed: EXPORT_CONFIG.LIMITS.MAX_JOBS_BATCH,
+            requestedCount: jobIds.length
+          }
+        });
+      }
+
+      // Remove duplicates
+      const uniqueJobIds = [...new Set(jobIds)];
+
+      const jobStatuses = [];
+      const jobResults = [];
+      let totalInvoices = 0;
+
+      // Collect data from all jobs
+      for (const jobId of uniqueJobIds) {
+        try {
+          const jobStatus = processingAPI.getJobStatus(jobId);
+          const results = processingAPI.getJobResults(jobId);
+
+          // Only include completed jobs
+          if (jobStatus.status === 'completed') {
+            jobStatuses.push(jobStatus);
+            jobResults.push(results);
+
+            // Count invoices for limit checking
+            const successfulResults = results.filter(r => r.success);
+            totalInvoices += successfulResults.length;
+          } else {
+            // Log warning for non-completed jobs
+            console.warn(`Skipping job ${jobId}: status is ${jobStatus.status}`);
+          }
+        } catch (error) {
+          // Log error but continue with other jobs
+          console.error(`Error processing job ${jobId}:`, error.message);
+        }
+      }
+
+      // Check total invoice limit
+      if (totalInvoices > EXPORT_CONFIG.LIMITS.MAX_INVOICES_BATCH) {
+        return res.status(413).json({
+          error: 'Invoice limit exceeded',
+          message: `Total invoices across all jobs exceeds limit of ${EXPORT_CONFIG.LIMITS.MAX_INVOICES_BATCH}`,
+          errorCode: EXPORT_CONFIG.ERRORS.CODES.LIMIT_EXCEEDED,
+          details: {
+            maxAllowed: EXPORT_CONFIG.LIMITS.MAX_INVOICES_BATCH,
+            totalInvoices: totalInvoices
+          }
+        });
+      }
+
+      // Check if we have any valid jobs
+      if (jobStatuses.length === 0) {
+        return res.status(404).json({
+          error: 'No valid jobs found',
+          message: 'None of the specified jobs were found or completed',
+          errorCode: EXPORT_CONFIG.ERRORS.CODES.VALIDATION_ERROR
+        });
+      }
+
+      // Calculate batch totals
+      const batchTotals = calculateBatchTotals(jobStatuses, jobResults);
+
+      // Generate filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const filename = `batch-totals-${timestamp}.${format}`;
+
+      // Set appropriate headers
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+      let content;
+      let contentType;
+
+      switch (format) {
+        case 'json':
+          content = JSON.stringify(batchTotals, null, 2);
+          contentType = 'application/json';
+          break;
+
+        case 'csv':
+          contentType = 'text/csv';
+          res.setHeader('Content-Type', contentType);
+
+          const stringifier = stringify({
+            header: true,
+            columns: EXPORT_CONFIG.BATCH_TOTALS.CSV_HEADERS
+          });
+
+          stringifier.pipe(res);
+
+          // Write job-level summaries
+          batchTotals.jobs.forEach(job => {
+            stringifier.write({
+              'Job ID': job.jobId,
+              'Job Created Date': job.created ? new Date(job.created).toISOString().split('T')[0] : '',
+              'Job Completed Date': job.completed ? new Date(job.completed).toISOString().split('T')[0] : '',
+              'Total Invoices': job.invoiceCount,
+              'Successful Invoices': job.successfulInvoices,
+              'Failed Invoices': job.failedInvoices,
+              'Total Amount': job.totals.total ? job.totals.total.toFixed(2) : '0.00',
+              'Total Subtotal': job.totals.subtotal ? job.totals.subtotal.toFixed(2) : '0.00',
+              'Total Shipping': job.totals.shipping ? job.totals.shipping.toFixed(2) : '0.00',
+              'Total Tax': job.totals.tax ? job.totals.tax.toFixed(2) : '0.00',
+              'Total Discount': job.totals.discount ? job.totals.discount.toFixed(2) : '0.00',
+              'Currency': job.currency || '',
+              'Success Rate (%)': job.successRate
+            });
+          });
+
+          // Write batch summary row
+          stringifier.write({
+            'Job ID': 'BATCH_TOTAL',
+            'Job Created Date': '',
+            'Job Completed Date': '',
+            'Total Invoices': batchTotals.totalInvoices,
+            'Successful Invoices': batchTotals.successfulInvoices,
+            'Failed Invoices': batchTotals.failedInvoices,
+            'Total Amount': batchTotals.totals.total.toFixed(2),
+            'Total Subtotal': batchTotals.totals.subtotal.toFixed(2),
+            'Total Shipping': batchTotals.totals.shipping.toFixed(2),
+            'Total Tax': batchTotals.totals.tax.toFixed(2),
+            'Total Discount': batchTotals.totals.discount.toFixed(2),
+            'Currency': 'MULTI', // Indicates multiple currencies
+            'Success Rate (%)': batchTotals.totalInvoices > 0
+              ? ((batchTotals.successfulInvoices / batchTotals.totalInvoices) * 100).toFixed(1)
+              : '0.0'
+          });
+
+          stringifier.end();
+          return; // Important: exit early since response is handled by stream
+
+        default:
+          return res.status(400).json({
+            error: 'Unsupported format',
+            message: `Format '${format}' is not supported for batch totals`
+          });
+      }
+
+      // Set content type and send response
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Length', Buffer.isBuffer(content) ? content.length : Buffer.byteLength(content, 'utf8'));
+      res.send(content);
+
+    } catch (error) {
+      // Log full error details server-side
+      console.error('Batch totals export error:', {
+        jobIds: req.body.jobIds,
+        format,
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
+
+      // Return safe error messages to client
+      res.status(500).json({
+        error: 'Batch totals export failed',
         message: EXPORT_CONFIG.ERRORS.MESSAGES.EXPORT_FAILED,
         errorCode: EXPORT_CONFIG.ERRORS.CODES.EXPORT_ERROR
       });

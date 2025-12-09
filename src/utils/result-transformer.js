@@ -131,6 +131,156 @@ function transformResultsForExport(rawResults) {
     });
 }
 
+/**
+ * Calculates batch totals across multiple jobs for accounting purposes
+ * @param {Array} jobStatuses - Array of job status objects from ProcessingAPI
+ * @param {Array} jobResults - Array of job results arrays from ProcessingAPI
+ * @returns {Object} Batch totals summary with aggregated financial data
+ */
+function calculateBatchTotals(jobStatuses, jobResults) {
+  if (!Array.isArray(jobStatuses) || !Array.isArray(jobResults)) {
+    throw new Error('jobStatuses and jobResults must be arrays');
+  }
+
+  if (jobStatuses.length !== jobResults.length) {
+    throw new Error('jobStatuses and jobResults arrays must have the same length');
+  }
+
+  const batchSummary = {
+    totalJobs: jobStatuses.length,
+    totalInvoices: 0,
+    successfulInvoices: 0,
+    failedInvoices: 0,
+    jobs: [],
+    totals: {
+      total: 0,
+      subtotal: 0,
+      shipping: 0,
+      tax: 0,
+      discount: 0
+    },
+    currencies: new Map(), // Track totals by currency
+    exportDate: new Date().toISOString()
+  };
+
+  // Process each job
+  jobStatuses.forEach((jobStatus, index) => {
+    const jobResultsData = jobResults[index];
+    const transformedResults = transformResultsForExport(jobResultsData);
+
+    // Calculate job totals
+    const jobTotals = {
+      total: 0,
+      subtotal: 0,
+      shipping: 0,
+      tax: 0,
+      discount: 0
+    };
+
+    let jobCurrency = null;
+    const currencyCounts = new Map();
+
+    // Aggregate totals from successful invoices in this job
+    transformedResults.forEach(invoice => {
+      if (invoice.totals) {
+        jobTotals.total += invoice.totals.total || 0;
+        jobTotals.subtotal += invoice.totals.subtotal || 0;
+        jobTotals.shipping += invoice.totals.shipping || 0;
+        jobTotals.tax += invoice.totals.tax || 0;
+        jobTotals.discount += invoice.totals.discount || 0;
+
+        // Track currency usage
+        if (invoice.currency) {
+          currencyCounts.set(invoice.currency, (currencyCounts.get(invoice.currency) || 0) + 1);
+          if (!jobCurrency) {
+            jobCurrency = invoice.currency;
+          }
+        }
+      }
+    });
+
+    // Determine primary currency for this job (most common)
+    if (currencyCounts.size > 0) {
+      jobCurrency = Array.from(currencyCounts.entries())
+        .sort((a, b) => b[1] - a[1])[0][0];
+    }
+
+    // Update batch totals
+    batchSummary.totalInvoices += transformedResults.length;
+    batchSummary.successfulInvoices += transformedResults.length; // Only successful ones are in transformedResults
+    batchSummary.failedInvoices += jobStatus.progress.failed;
+
+    batchSummary.totals.total += jobTotals.total;
+    batchSummary.totals.subtotal += jobTotals.subtotal;
+    batchSummary.totals.shipping += jobTotals.shipping;
+    batchSummary.totals.tax += jobTotals.tax;
+    batchSummary.totals.discount += jobTotals.discount;
+
+    // Update currency-specific totals
+    if (jobCurrency) {
+      if (!batchSummary.currencies.has(jobCurrency)) {
+        batchSummary.currencies.set(jobCurrency, {
+          total: 0,
+          subtotal: 0,
+          shipping: 0,
+          tax: 0,
+          discount: 0,
+          invoiceCount: 0
+        });
+      }
+
+      const currencyTotals = batchSummary.currencies.get(jobCurrency);
+      currencyTotals.total += jobTotals.total;
+      currencyTotals.subtotal += jobTotals.subtotal;
+      currencyTotals.shipping += jobTotals.shipping;
+      currencyTotals.tax += jobTotals.tax;
+      currencyTotals.discount += jobTotals.discount;
+      currencyTotals.invoiceCount += transformedResults.length;
+    }
+
+    // Add job summary
+    batchSummary.jobs.push({
+      jobId: jobStatus.id,
+      created: jobStatus.created,
+      completed: jobStatus.completed,
+      invoiceCount: transformedResults.length,
+      successfulInvoices: jobStatus.progress.successful,
+      failedInvoices: jobStatus.progress.failed,
+      successRate: jobStatus.progress.total > 0
+        ? Math.round((jobStatus.progress.successful / jobStatus.progress.total) * 100 * 10) / 10
+        : 0,
+      totals: jobTotals,
+      currency: jobCurrency
+    });
+  });
+
+  // Convert currencies Map to object for JSON serialization
+  batchSummary.currencies = Object.fromEntries(
+    Array.from(batchSummary.currencies.entries()).map(([currency, totals]) => [
+      currency,
+      {
+        ...totals,
+        // Round to 2 decimal places for display
+        total: Math.round(totals.total * 100) / 100,
+        subtotal: Math.round(totals.subtotal * 100) / 100,
+        shipping: Math.round(totals.shipping * 100) / 100,
+        tax: Math.round(totals.tax * 100) / 100,
+        discount: Math.round(totals.discount * 100) / 100
+      }
+    ])
+  );
+
+  // Round main totals
+  batchSummary.totals.total = Math.round(batchSummary.totals.total * 100) / 100;
+  batchSummary.totals.subtotal = Math.round(batchSummary.totals.subtotal * 100) / 100;
+  batchSummary.totals.shipping = Math.round(batchSummary.totals.shipping * 100) / 100;
+  batchSummary.totals.tax = Math.round(batchSummary.totals.tax * 100) / 100;
+  batchSummary.totals.discount = Math.round(batchSummary.totals.discount * 100) / 100;
+
+  return batchSummary;
+}
+
 module.exports = {
-  transformResultsForExport
+  transformResultsForExport,
+  calculateBatchTotals
 };
