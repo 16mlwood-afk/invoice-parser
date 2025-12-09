@@ -12,6 +12,7 @@ export { Header } from './layout/header';
 export { ResultsTable } from './results/results-table';
 export { ResultsSummary } from './results/results-summary';
 export { ExportControls } from './results/export-controls';
+export { ParsingQualityChecklistComponent } from './results/parsing-quality-checklist';
 
 // Providers
 export { ThemeProvider, useTheme } from './theme-provider';

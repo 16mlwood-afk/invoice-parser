@@ -1,6 +1,27 @@
 import { create } from 'zustand';
 import { ProcessingStatus, FileProcessingStatus } from '@/types/processing';
 import { ProcessingApi } from '@/lib/api/processing';
+import { useUploadStore } from './upload-store';
+
+// Performance monitoring utilities
+const isProduction = process.env.NODE_ENV === 'production';
+const PERFORMANCE_LOGGING = process.env.NEXT_PUBLIC_ENABLE_PERFORMANCE_LOGGING === 'true' || !isProduction;
+
+const performanceLogger = {
+  log: (message: string, data?: any) => {
+    if (PERFORMANCE_LOGGING) {
+      console.log(`[ProcessingStore] ${message}`, data);
+    }
+  },
+  warn: (message: string, data?: any) => {
+    if (PERFORMANCE_LOGGING) {
+      console.warn(`[ProcessingStore] ${message}`, data);
+    }
+  },
+  error: (message: string, data?: any) => {
+    console.error(`[ProcessingStore] ${message}`, data);
+  }
+};
 
 // Job display states for auto-clear functionality
 export type JobDisplayState = 'active' | 'completing' | 'fading' | 'removed';
@@ -80,6 +101,8 @@ export const useProcessingStore = create<ProcessingStore>((set, get) => ({
 
         // Handle job completion - start auto-clear for completed jobs (but not failed jobs)
         if (previousStatus !== 'completed' && newStatus === 'completed') {
+          // Clear upload store files and job ID when job completes successfully
+          useUploadStore.getState().clearFiles();
           get().startAutoClear();
         }
       } else {
@@ -136,9 +159,18 @@ export const useProcessingStore = create<ProcessingStore>((set, get) => ({
 
   resetJobStatus: () => {
     // Clean up any existing timers
-    const { fadeTimeoutId, countdownIntervalId } = get().jobDisplayInfo;
-    if (fadeTimeoutId) clearTimeout(fadeTimeoutId);
-    if (countdownIntervalId) clearInterval(countdownIntervalId);
+    const { fadeTimeoutId, countdownIntervalId, currentJobId } = get();
+
+    if (fadeTimeoutId || countdownIntervalId) {
+      performanceLogger.log('Cleaning up timers on reset', {
+        jobId: currentJobId,
+        fadeTimeoutId: !!fadeTimeoutId,
+        countdownIntervalId: !!countdownIntervalId
+      });
+
+      if (fadeTimeoutId) clearTimeout(fadeTimeoutId);
+      if (countdownIntervalId) clearInterval(countdownIntervalId);
+    }
 
     set({
       currentJobId: null,
@@ -156,14 +188,28 @@ export const useProcessingStore = create<ProcessingStore>((set, get) => ({
 
   // Auto-clear actions
   startAutoClear: () => {
-    const { jobDisplayInfo } = get();
+    const { jobDisplayInfo, currentJobId } = get();
 
-    // Clear any existing timers
-    if (jobDisplayInfo.fadeTimeoutId) clearTimeout(jobDisplayInfo.fadeTimeoutId);
-    if (jobDisplayInfo.countdownIntervalId) clearInterval(jobDisplayInfo.countdownIntervalId);
+    performanceLogger.log('Starting auto-clear countdown', {
+      jobId: currentJobId,
+      existingFadeTimeout: !!jobDisplayInfo.fadeTimeoutId,
+      existingCountdownInterval: !!jobDisplayInfo.countdownIntervalId
+    });
+
+    // Clear any existing timers (prevent memory leaks)
+    if (jobDisplayInfo.fadeTimeoutId) {
+      clearTimeout(jobDisplayInfo.fadeTimeoutId);
+      performanceLogger.log('Cleared existing fade timeout', { jobId: currentJobId });
+    }
+    if (jobDisplayInfo.countdownIntervalId) {
+      clearInterval(jobDisplayInfo.countdownIntervalId);
+      performanceLogger.log('Cleared existing countdown interval', { jobId: currentJobId });
+    }
 
     // Start countdown at 7 seconds
     const countdownStart = 7;
+    const startTime = Date.now();
+
     set({
       jobDisplayInfo: {
         ...jobDisplayInfo,
@@ -177,11 +223,27 @@ export const useProcessingStore = create<ProcessingStore>((set, get) => ({
 
     // Start countdown timer
     const countdownIntervalId = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const remaining = Math.max(0, countdownStart - elapsed);
+
+      performanceLogger.log('Countdown tick', {
+        jobId: currentJobId,
+        elapsed,
+        remaining,
+        expectedRemaining: get().jobDisplayInfo.countdownSeconds
+      });
+
       get().updateCountdown();
     }, 1000);
 
     // Start fade-out timer (7 seconds total)
     const fadeTimeoutId = setTimeout(() => {
+      const totalElapsed = Date.now() - startTime;
+      performanceLogger.log('Auto-clear timeout triggered', {
+        jobId: currentJobId,
+        totalElapsedMs: totalElapsed,
+        expectedMs: countdownStart * 1000
+      });
       get().clearJobManually();
     }, countdownStart * 1000);
 
@@ -193,14 +255,37 @@ export const useProcessingStore = create<ProcessingStore>((set, get) => ({
         countdownIntervalId,
       }
     }));
+
+    performanceLogger.log('Auto-clear timers started', {
+      jobId: currentJobId,
+      fadeTimeoutId: fadeTimeoutId.toString(),
+      countdownIntervalId: countdownIntervalId.toString()
+    });
   },
 
   clearJobManually: () => {
-    const { jobDisplayInfo } = get();
+    const { jobDisplayInfo, currentJobId } = get();
+
+    const wasAutoClear = jobDisplayInfo.fadeTimeoutId !== undefined;
+    const manualTriggerTime = Date.now();
+
+    performanceLogger.log('Clearing job manually', {
+      jobId: currentJobId,
+      wasAutoClear,
+      displayState: jobDisplayInfo.displayState,
+      countdownSeconds: jobDisplayInfo.countdownSeconds,
+      completedAt: jobDisplayInfo.completedAt
+    });
 
     // Clear timers
-    if (jobDisplayInfo.fadeTimeoutId) clearTimeout(jobDisplayInfo.fadeTimeoutId);
-    if (jobDisplayInfo.countdownIntervalId) clearInterval(jobDisplayInfo.countdownIntervalId);
+    if (jobDisplayInfo.fadeTimeoutId) {
+      clearTimeout(jobDisplayInfo.fadeTimeoutId);
+      performanceLogger.log('Cleared fade timeout on manual clear', { jobId: currentJobId });
+    }
+    if (jobDisplayInfo.countdownIntervalId) {
+      clearInterval(jobDisplayInfo.countdownIntervalId);
+      performanceLogger.log('Cleared countdown interval on manual clear', { jobId: currentJobId });
+    }
 
     // First transition to fading state
     set({
@@ -214,6 +299,13 @@ export const useProcessingStore = create<ProcessingStore>((set, get) => ({
 
     // Then remove after animation (500ms)
     setTimeout(() => {
+      performanceLogger.log('Job fully removed from dashboard', {
+        jobId: currentJobId,
+        totalTimeFromCompletion: jobDisplayInfo.completedAt
+          ? manualTriggerTime - jobDisplayInfo.completedAt.getTime()
+          : 'unknown'
+      });
+
       set({
         jobDisplayInfo: {
           displayState: 'removed',

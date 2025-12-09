@@ -30,15 +30,71 @@ export interface InvoiceItem {
   description?: string;
   quantity?: number;
   unitPrice?: number;
+  totalPrice?: number;
   total?: number;
   itemNumber?: string;
+  asin?: string;
 }
 
 export interface InvoiceTotals {
   subtotal?: number;
   shipping?: number;
   tax?: number;
+  discount?: number;
   total?: number;
+}
+
+export interface TaxDetails {
+  vatRate?: number;
+  taxAmount?: number;
+}
+
+export interface Address {
+  name?: string;
+  street?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+}
+
+export interface ConfidenceScores {
+  orderNumber: number;
+  orderDate: number;
+  subtotal: number;
+  shipping: number;
+  tax: number;
+  discount: number;
+  total: number;
+  vatRate: number;
+  shippingAddress: number;
+  billingAddress: number;
+  paymentMethod: number;
+  overall: number;
+}
+
+export interface ParsingQualityField {
+  status: 'extracted' | 'missing' | 'partial';
+  confidence: number;
+  value: any;
+  critical: boolean;
+  displayName: string;
+}
+
+export interface ParsingQualityRecommendation {
+  type: 'critical' | 'warning' | 'info';
+  message: string;
+  action: string;
+}
+
+export interface ParsingQualityChecklist {
+  overall: {
+    score: number;
+    status: 'excellent' | 'good' | 'fair' | 'poor';
+    criticalFieldsMissing: number;
+    totalFields: number;
+  };
+  fields: Record<string, ParsingQualityField>;
+  recommendations: ParsingQualityRecommendation[];
 }
 
 export interface InvoiceData {
@@ -48,9 +104,15 @@ export interface InvoiceData {
   customerInfo?: CustomerInfo;
   items: InvoiceItem[];
   totals: InvoiceTotals;
+  taxDetails?: TaxDetails;
+  shippingAddress?: Address;
+  billingAddress?: Address;
+  paymentMethod?: string;
+  confidenceScores?: ConfidenceScores;
   currency?: string;
   validationStatus: 'valid' | 'warning' | 'error';
   validationErrors?: string[];
+  parsingQuality?: ParsingQualityChecklist;
 }
 
 export interface ParserSettings {

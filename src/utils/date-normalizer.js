@@ -91,24 +91,24 @@ class DateNormalizer {
   static parseGermanDate(dateStr) {
     const patterns = [
       // "29 November 2025"
-      /^(\d{1,2})\.?\s*([A-Za-zäöüß]+)\s+(\d{4})$/,
+      { pattern: /^(\d{1,2})\.?\s*([A-Za-zäöüß]+)\s+(\d{4})$/, type: 'monthName' },
       // "29. November 2025"
-      /^(\d{1,2})\.\s*([A-Za-zäöüß]+)\s+(\d{4})$/,
+      { pattern: /^(\d{1,2})\.\s*([A-Za-zäöüß]+)\s+(\d{4})$/, type: 'monthName' },
       // DD.MM.YYYY
-      /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/,
+      { pattern: /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/, type: 'numeric' },
     ];
 
-    for (const pattern of patterns) {
+    for (const { pattern, type } of patterns) {
       const match = dateStr.match(pattern);
       if (match) {
-        if (match.length === 4) {
+        if (type === 'monthName') {
           // Month name format
           const [, day, monthName, year] = match;
           const month = this.getMonthNumber(monthName, 'de');
           if (month) {
             return new Date(parseInt(year), month - 1, parseInt(day));
           }
-        } else if (match.length === 4) {
+        } else if (type === 'numeric') {
           // DD.MM.YYYY format
           const [, day, month, year] = match;
           return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));

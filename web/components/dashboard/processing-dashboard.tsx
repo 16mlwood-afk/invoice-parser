@@ -156,22 +156,41 @@ export function ProcessingDashboard() {
     <div className={`space-y-8 ${jobDisplayInfo.displayState === 'fading' ? 'job-fading' : ''}`}>
       {/* Job Header */}
       <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8" aria-labelledby="job-header">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-hover rounded-xl flex items-center justify-center shadow-sm">
-                <span className="text-white text-lg font-bold">📊</span>
-              </div>
-              <div>
-                <h2 id="job-header" className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Processing Job {currentJobId}
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Started {jobStatus?.startedAt ? new Date(jobStatus.startedAt).toLocaleString() : 'Unknown time'}
-                </p>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-hover rounded-xl flex items-center justify-center shadow-sm">
+                  <span className="text-white text-lg font-bold">📊</span>
+                </div>
+                <div>
+                  <h2 id="job-header" className="text-2xl font-bold text-gray-900 dark:text-white">
+                    Processing Job {currentJobId}
+                  </h2>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      Started {jobStatus?.startedAt ? new Date(jobStatus.startedAt).toLocaleString() : 'Unknown time'}
+                    </p>
+                    {/* Help tooltip for auto-clear behavior */}
+                    <div className="group relative">
+                      <button
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        aria-label="About auto-clear"
+                        title="Click for information about completed job handling"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </button>
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10 shadow-lg">
+                        Completed jobs auto-clear after 7 seconds to keep your dashboard clean.
+                        Results are always saved and accessible via the Results page.
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
             {/* Connection Status */}

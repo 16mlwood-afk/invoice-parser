@@ -1,6 +1,6 @@
 {
   "name": "amazon-invoice-parser",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A Node.js utility to extract structured data from Amazon invoice PDFs. Companion tool for the Amazon Invoice Extractor Chrome extension.",
   "main": "index.js",
   "engines": {
@@ -52,6 +52,7 @@
     "bmad-method": "^4.44.3",
     "commander": "^11.1.0",
     "cors": "^2.8.5",
+    "csv-stringify": "^6.5.1",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
     "joi": "^17.9.2",

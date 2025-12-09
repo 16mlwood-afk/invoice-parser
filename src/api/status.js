@@ -138,9 +138,12 @@ module.exports = (app) => {
       }
 
       // Get job status
-      const status = processingAPI.getJobStatus(jobId);
+      const job = processingAPI.getJobStatus(jobId);
 
-      res.status(200).json(status);
+      res.status(200).json({
+        success: true,
+        job: job
+      });
 
     } catch (error) {
       console.error('Status check error:', error);

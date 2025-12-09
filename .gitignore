@@ -123,3 +123,14 @@ test-*.js
 *.original.js
 test_output/
 debug_output/
+
+# Upload directories and test files
+uploads/
+export_test.*
+test-upload.*
+temp-invoice-test.txt
+test-export*.pdf
+final-test.pdf
+*-test.pdf
+test_data/
+test_output/

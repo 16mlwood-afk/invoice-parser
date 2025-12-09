@@ -8,7 +8,10 @@ module.exports = {
   testPathIgnorePatterns: [
     '<rootDir>/tests/fixtures/'
   ],
-  setupFilesAfterEnv: ['<rootDir>/tests/unit/setup.js'],
+  setupFilesAfterEnv: [
+    '<rootDir>/tests/unit/setup.js',
+    '<rootDir>/tests/integration/setup.js'
+  ],
   collectCoverageFrom: [
     'index.js',
     'src/**/*.js',

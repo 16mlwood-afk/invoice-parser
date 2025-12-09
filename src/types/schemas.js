@@ -81,6 +81,26 @@ const invoiceSchema = joi.object({
     languageDetection: joi.string().required(),
     parser: joi.string().required(),
     timestamp: joi.string().isoDate().required()
+  }).optional(),
+  parsingQualityChecklist: joi.object({
+    overall: joi.object({
+      score: joi.number().min(0).max(100).required(),
+      status: joi.string().valid('excellent', 'good', 'fair', 'poor', 'critical').required(),
+      criticalFieldsMissing: joi.number().min(0).required(),
+      totalFields: joi.number().min(0).required(),
+      extractedFields: joi.number().min(0).required()
+    }).required(),
+    fields: joi.object().pattern(
+      joi.string(),
+      joi.object({
+        status: joi.string().valid('extracted', 'missing', 'invalid').required(),
+        confidence: joi.number().min(0).max(100).required(),
+        value: joi.any().allow(null),
+        critical: joi.boolean().required(),
+        category: joi.string().valid('order', 'items', 'financial').required()
+      })
+    ).required(),
+    recommendations: joi.array().items(joi.string()).required()
   }).optional()
 });
 

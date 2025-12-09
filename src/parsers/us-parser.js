@@ -165,8 +165,9 @@ class USParser extends BaseParser {
     if (!text || typeof text !== 'string') return null;
 
     const subtotalPatterns = [
-      /Subtotal[:\s]*\$?(\d+\.?\d*)/i,
-      /Sub-Total[:\s]*\$?(\d+\.?\d*)/i,
+      /Subtotal[:\s]*\$?([\d,]+\.?\d*)/i,
+      /Sub-Total[:\s]*\$?([\d,]+\.?\d*)/i,
+      /Item\(?s?\)? Subtotal[:\s]*\$?([\d,]+\.?\d*)/i,
     ];
 
     for (const pattern of subtotalPatterns) {
@@ -188,9 +189,9 @@ class USParser extends BaseParser {
     if (!text || typeof text !== 'string') return null;
 
     const shippingPatterns = [
-      /Shipping\s*&?\s*Handling[:\s]*\$?(\d+\.?\d*)/i,
-      /Shipping[:\s]*\$?(\d+\.?\d*)/i,
-      /Delivery[:\s]*\$?(\d+\.?\d*)/i,
+      /Shipping\s*&?\s*Handling[:\s]*\$?([\d,]+\.?\d*)/i,
+      /Shipping[:\s]*\$?([\d,]+\.?\d*)/i,
+      /Delivery[:\s]*\$?([\d,]+\.?\d*)/i,
     ];
 
     for (const pattern of shippingPatterns) {
@@ -212,9 +213,10 @@ class USParser extends BaseParser {
     if (!text || typeof text !== 'string') return null;
 
     const taxPatterns = [
-      /Tax[:\s]*\$?(\d+\.?\d*)/i,
-      /Sales\s+Tax[:\s]*\$?(\d+\.?\d*)/i,
-      /VAT[:\s]*\$?(\d+\.?\d*)/i,
+      /Estimated\s+Tax[:\s]*\$?([\d,]+\.?\d*)/i,
+      /Sales\s+Tax[:\s]*\$?([\d,]+\.?\d*)/i,
+      /VAT[:\s]*\$?([\d,]+\.?\d*)/i,
+      /Tax[:\s]*\$?([\d,]+\.?\d*)/i,  // Generic pattern last
     ];
 
     for (const pattern of taxPatterns) {
@@ -259,9 +261,10 @@ class USParser extends BaseParser {
     if (!text || typeof text !== 'string') return null;
 
     const totalPatterns = [
-      /Total[:\s]*\$?(\d+\.?\d*)/i,
-      /Grand\s+Total[:\s]*\$?(\d+\.?\d*)/i,
-      /Amount\s+Due[:\s]*\$?(\d+\.?\d*)/i,
+      /Total[:\s]*\$?([\d,]+\.?\d*)/i,
+      /Grand\s+Total[:\s]*\$?([\d,]+\.?\d*)/i,
+      /Amount\s+Due[:\s]*\$?([\d,]+\.?\d*)/i,
+      /Order\s+Total[:\s]*\$?([\d,]+\.?\d*)/i,
     ];
 
     for (const pattern of totalPatterns) {

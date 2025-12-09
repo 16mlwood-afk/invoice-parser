@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { InvoiceData } from '@/types';
 import { Button } from '@/components/ui';
 import { useResultsStore } from '@/stores/results-store';
+import { ParsingQualityChecklistComponent } from './parsing-quality-checklist';
 
 interface ResultsTableProps {
   results: InvoiceData[];
@@ -225,7 +226,7 @@ export function ResultsTable({ results }: ResultsTableProps) {
                     {result.items?.length || 0}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-neutral-100">
-                    {result.totals?.total ? `${result.currency || 'USD'} ${result.totals.total.toFixed(2)}` : '-'}
+                    {typeof result.totals?.total === 'number' ? `${result.currency || 'USD'} ${result.totals.total.toFixed(2)}` : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getValidationStatusColor(result.validationStatus)}`}>
@@ -242,7 +243,15 @@ export function ResultsTable({ results }: ResultsTableProps) {
                         <div>
                           <h4 className="text-sm font-medium text-gray-900 dark:text-neutral-100 mb-2">Raw Data (JSON)</h4>
                           <pre className="bg-gray-800 text-green-400 p-4 rounded-md text-xs overflow-x-auto max-h-96 overflow-y-auto">
-                            {JSON.stringify(result, null, 2)}
+                            {JSON.stringify(result, (key, value) => {
+                              // Format currency-related numbers with 2 decimal places for accounting display
+                              if (typeof value === 'number' &&
+                                  (key === 'subtotal' || key === 'shipping' || key === 'tax' || key === 'discount' || key === 'total' ||
+                                   key === 'unitPrice' || key === 'totalPrice' || key === 'price' || key === 'taxAmount')) {
+                                return value.toFixed(2);
+                              }
+                              return value;
+                            }, 2)}
                           </pre>
                         </div>
 
@@ -255,6 +264,17 @@ export function ResultsTable({ results }: ResultsTableProps) {
                                 <li key={index} className="text-sm text-red-700 dark:text-red-300">{error}</li>
                               ))}
                             </ul>
+                          </div>
+                        )}
+
+                        {/* Parsing Quality Checklist */}
+                        {result.parsingQuality && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-900 dark:text-neutral-100 mb-2">Parsing Quality Assessment</h4>
+                            <ParsingQualityChecklistComponent
+                              checklist={result.parsingQuality}
+                              className="bg-white dark:bg-neutral-700"
+                            />
                           </div>
                         )}
 
@@ -278,10 +298,10 @@ export function ResultsTable({ results }: ResultsTableProps) {
                                       <td className="px-3 py-2 text-sm text-gray-900 dark:text-neutral-100">{item.description || '-'}</td>
                                       <td className="px-3 py-2 text-sm text-gray-900 dark:text-neutral-100">{item.quantity || '-'}</td>
                                       <td className="px-3 py-2 text-sm text-gray-900 dark:text-neutral-100">
-                                        {item.unitPrice ? `${result.currency || 'USD'} ${item.unitPrice.toFixed(2)}` : '-'}
+                                        {typeof item.unitPrice === 'number' ? `${result.currency || 'USD'} ${item.unitPrice.toFixed(2)}` : '-'}
                                       </td>
                                       <td className="px-3 py-2 text-sm text-gray-900 dark:text-neutral-100">
-                                        {item.total ? `${result.currency || 'USD'} ${item.total.toFixed(2)}` : '-'}
+                                        {typeof item.total === 'number' ? `${result.currency || 'USD'} ${item.total.toFixed(2)}` : '-'}
                                       </td>
                                     </tr>
                                   ))}

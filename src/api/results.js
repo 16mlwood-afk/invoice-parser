@@ -1,5 +1,6 @@
 // API endpoint for retrieving job results
 const ProcessingAPI = require('./processing');
+const { transformResultsForExport } = require('../utils/result-transformer');
 
 // Initialize processing API
 const processingAPI = new ProcessingAPI();
@@ -90,45 +91,7 @@ module.exports = (app) => {
         }));
 
       // Transform successful results to match frontend InvoiceData interface
-      const transformedResults = jobStatus.results
-        .filter(result => result.success)
-        .map(result => {
-          const data = result.data;
-          if (!data) {
-            return {
-              filename: result.filename,
-              orderNumber: null,
-              orderDate: null,
-              customerInfo: null,
-              items: [],
-              totals: {
-                subtotal: null,
-                shipping: null,
-                tax: null,
-                total: null
-              },
-              currency: null,
-              validationStatus: 'warning',
-              validationErrors: ['No data extracted from invoice']
-            };
-          }
-          return {
-            filename: result.filename,
-            orderNumber: data.orderNumber,
-            orderDate: data.orderDate,
-            customerInfo: data.customerInfo,
-            items: data.items || [],
-            totals: {
-              subtotal: data.subtotal,
-              shipping: data.shipping,
-              tax: data.tax,
-              total: data.total
-            },
-            currency: data.currency,
-            validationStatus: data.validation?.isValid ? 'valid' : 'warning',
-            validationErrors: data.validation?.warnings?.map(w => w.message) || []
-          };
-        });
+      const transformedResults = transformResultsForExport(jobStatus.results);
 
       res.status(200).json({
         success: true,

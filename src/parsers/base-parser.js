@@ -41,6 +41,36 @@ class BaseParser {
       tax: joi.string().allow(null),
       discount: joi.string().allow(null),
       total: joi.string().allow(null),
+      vatRate: joi.number().min(0).max(100).allow(null),
+      shippingAddress: joi.object({
+        name: joi.string().optional(),
+        street: joi.string().optional(),
+        city: joi.string().optional(),
+        postalCode: joi.string().optional(),
+        country: joi.string().optional()
+      }).allow(null),
+      billingAddress: joi.object({
+        name: joi.string().optional(),
+        street: joi.string().optional(),
+        city: joi.string().optional(),
+        postalCode: joi.string().optional(),
+        country: joi.string().optional()
+      }).allow(null),
+      paymentMethod: joi.string().allow(null),
+      confidenceScores: joi.object({
+        orderNumber: joi.number().min(0).max(100),
+        orderDate: joi.number().min(0).max(100),
+        subtotal: joi.number().min(0).max(100),
+        shipping: joi.number().min(0).max(100),
+        tax: joi.number().min(0).max(100),
+        discount: joi.number().min(0).max(100),
+        total: joi.number().min(0).max(100),
+        vatRate: joi.number().min(0).max(100),
+        shippingAddress: joi.number().min(0).max(100),
+        billingAddress: joi.number().min(0).max(100),
+        paymentMethod: joi.number().min(0).max(100),
+        overall: joi.number().min(0).max(100)
+      }).optional(),
       vendor: joi.string().default('Amazon'),
       format: joi.string().optional(),
       subtype: joi.string().allow(null).optional(),
@@ -400,8 +430,15 @@ class BaseParser {
 
     let total = 0;
     for (const item of items) {
-      if (item.price) {
-        const numericPrice = this.extractNumericValue(item.price);
+      // Check for price field (legacy) or totalPrice field (new format)
+      const priceField = item.price || item.totalPrice;
+      if (priceField) {
+        let numericPrice;
+        if (typeof priceField === 'number') {
+          numericPrice = priceField;
+        } else {
+          numericPrice = this.extractNumericValue(priceField);
+        }
         if (!isNaN(numericPrice)) {
           total += numericPrice;
         }
@@ -618,6 +655,263 @@ class BaseParser {
     };
 
     return partialInvoice;
+  }
+
+  /**
+   * Generate parsing quality checklist for extracted invoice data
+   * @param {Object} invoice - Parsed invoice data
+   * @param {Object} extractionMetadata - Metadata about the extraction process
+   * @returns {Object} - Parsing quality report with field-by-field assessment
+   */
+  generateParsingQualityChecklist(invoice, extractionMetadata = {}) {
+    const checklist = {
+      overall: {
+        score: 100,
+        status: 'excellent',
+        criticalFieldsMissing: 0,
+        totalFields: 0,
+        extractedFields: 0
+      },
+      fields: {},
+      recommendations: []
+    };
+
+    // Define field criticality and assessment rules
+    const fieldDefinitions = {
+      orderNumber: {
+        critical: true,
+        category: 'order',
+        validate: (value) => {
+          if (!value) return { status: 'missing', confidence: 0 };
+          const pattern = /^\d{3}-\d{7}-\d{7}$|^[A-Z0-9]{3}-\d{7}-\d{7}$/;
+          return pattern.test(value)
+            ? { status: 'extracted', confidence: 100 }
+            : { status: 'invalid', confidence: 30 };
+        }
+      },
+      orderDate: {
+        critical: true,
+        category: 'order',
+        validate: (value) => {
+          if (!value) return { status: 'missing', confidence: 0 };
+          // Check if date is valid and reasonable (not in future, not too old)
+          const date = new Date(value);
+          const now = new Date();
+          const isValid = !isNaN(date.getTime());
+          const isReasonable = isValid &&
+            date.getFullYear() >= 2020 &&
+            date <= new Date(now.getTime() + 24 * 60 * 60 * 1000); // Allow 1 day in future
+
+          if (!isValid) return { status: 'invalid', confidence: 10 };
+          if (!isReasonable) return { status: 'extracted', confidence: 60 };
+          return { status: 'extracted', confidence: 95 };
+        }
+      },
+      items: {
+        critical: true,
+        category: 'items',
+        validate: (value) => {
+          if (!value || !Array.isArray(value) || value.length === 0) {
+            return { status: 'missing', confidence: 0 };
+          }
+
+          let validItems = 0;
+          value.forEach(item => {
+            if (item.description && item.description.trim()) validItems++;
+          });
+
+          const confidence = Math.round((validItems / value.length) * 100);
+          return value.length > 0 && validItems > 0
+            ? { status: 'extracted', confidence }
+            : { status: 'invalid', confidence: 10 };
+        }
+      },
+      subtotal: {
+        critical: true,
+        category: 'financial',
+        validate: (value) => this._validateFinancialField(value)
+      },
+      shipping: {
+        critical: false,
+        category: 'financial',
+        validate: (value) => this._validateFinancialField(value)
+      },
+      tax: {
+        critical: true,
+        category: 'financial',
+        validate: (value) => this._validateFinancialField(value)
+      },
+      discount: {
+        critical: false,
+        category: 'financial',
+        validate: (value) => this._validateFinancialField(value)
+      },
+      total: {
+        critical: true,
+        category: 'financial',
+        validate: (value) => this._validateFinancialField(value)
+      },
+      currency: {
+        critical: false,
+        category: 'financial',
+        validate: (value) => {
+          if (!value) return { status: 'missing', confidence: 0 };
+          const validCurrencies = ['USD', 'EUR', 'GBP', 'CHF', 'JPY', 'CAD', 'AUD'];
+          return validCurrencies.includes(value.toUpperCase())
+            ? { status: 'extracted', confidence: 100 }
+            : { status: 'extracted', confidence: 70 };
+        }
+      }
+    };
+
+    // Assess each field
+    Object.keys(fieldDefinitions).forEach(fieldName => {
+      const definition = fieldDefinitions[fieldName];
+      const value = invoice[fieldName];
+      const assessment = definition.validate(value);
+
+      checklist.fields[fieldName] = {
+        status: assessment.status,
+        confidence: assessment.confidence,
+        value: value,
+        critical: definition.critical,
+        category: definition.category
+      };
+
+      checklist.overall.totalFields++;
+
+      if (assessment.status === 'extracted' || assessment.status === 'invalid') {
+        checklist.overall.extractedFields++;
+      }
+
+      if (assessment.status === 'missing' && definition.critical) {
+        checklist.overall.criticalFieldsMissing++;
+      }
+
+      // Adjust overall score based on field importance and confidence
+      const weight = definition.critical ? 1.0 : 0.5;
+      const fieldScore = (assessment.confidence / 100) * weight;
+      checklist.overall.score -= (1 - fieldScore) * (definition.critical ? 10 : 5);
+    });
+
+    // Ensure score stays within bounds
+    checklist.overall.score = Math.max(0, Math.min(100, Math.round(checklist.overall.score)));
+
+    // Determine overall status
+    if (checklist.overall.score >= 90) {
+      checklist.overall.status = 'excellent';
+    } else if (checklist.overall.score >= 75) {
+      checklist.overall.status = 'good';
+    } else if (checklist.overall.score >= 60) {
+      checklist.overall.status = 'fair';
+    } else if (checklist.overall.score >= 40) {
+      checklist.overall.status = 'poor';
+    } else {
+      checklist.overall.status = 'critical';
+    }
+
+    // Generate recommendations
+    checklist.recommendations = this._generateRecommendations(checklist);
+
+    return checklist;
+  }
+
+  /**
+   * Validate financial field (amounts)
+   * @param {string|number} value - Financial value to validate
+   * @returns {Object} - Validation result
+   */
+  _validateFinancialField(value) {
+    if (value === null || value === undefined || value === '') {
+      return { status: 'missing', confidence: 0 };
+    }
+
+    const numericValue = this.extractNumericValue(value.toString());
+
+    if (isNaN(numericValue)) {
+      return { status: 'invalid', confidence: 10 };
+    }
+
+    // Check for reasonable amount ranges
+    if (numericValue < 0) {
+      return { status: 'invalid', confidence: 20 };
+    }
+
+    if (numericValue > 1000000) { // Very high amounts might be parsing errors
+      return { status: 'extracted', confidence: 60 };
+    }
+
+    return { status: 'extracted', confidence: 95 };
+  }
+
+  /**
+   * Generate actionable recommendations based on checklist results
+   * @param {Object} checklist - Parsing quality checklist
+   * @returns {Array} - Array of recommendation strings
+   */
+  _generateRecommendations(checklist) {
+    const recommendations = [];
+
+    // Critical missing fields
+    const criticalMissing = Object.entries(checklist.fields)
+      .filter(([field, assessment]) =>
+        assessment.critical &&
+        (assessment.status === 'missing' || assessment.confidence < 50)
+      )
+      .map(([field]) => field);
+
+    if (criticalMissing.length > 0) {
+      recommendations.push(
+        `Manual data entry required for critical fields: ${criticalMissing.join(', ')}`
+      );
+    }
+
+    // Low confidence financial fields
+    const lowConfidenceFinancial = Object.entries(checklist.fields)
+      .filter(([field, assessment]) =>
+        assessment.category === 'financial' &&
+        assessment.confidence < 80 &&
+        assessment.status === 'extracted'
+      )
+      .map(([field]) => field);
+
+    if (lowConfidenceFinancial.length > 0) {
+      recommendations.push(
+        `Verify financial calculations for: ${lowConfidenceFinancial.join(', ')}`
+      );
+    }
+
+    // Overall quality warnings
+    if (checklist.overall.status === 'critical') {
+      recommendations.push(
+        'This invoice has significant parsing issues. Consider manual processing.'
+      );
+    } else if (checklist.overall.status === 'poor') {
+      recommendations.push(
+        'This invoice has parsing quality issues. Review extracted data carefully.'
+      );
+    }
+
+    // Specific field recommendations
+    if (checklist.fields.orderDate?.status === 'missing') {
+      recommendations.push(
+        'Order date is missing. Check invoice header or footer for date information.'
+      );
+    }
+
+    if (checklist.fields.total?.status === 'missing') {
+      recommendations.push(
+        'Total amount is missing. Sum of subtotal, tax, and shipping may be needed.'
+      );
+    }
+
+    if (checklist.fields.items?.confidence < 70 && checklist.fields.items?.status === 'extracted') {
+      recommendations.push(
+        'Item descriptions may be incomplete. Verify item details manually.'
+      );
+    }
+
+    return recommendations;
   }
 }
 

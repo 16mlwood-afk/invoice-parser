@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card } from '@/components/ui';
 import { ComparisonReport } from '@/stores/comparison-store';
+import { formatRelativeTime } from '@/utils/time-estimation';
 
 interface ComparisonSummaryProps {
   comparison: ComparisonReport;
@@ -20,7 +21,9 @@ export function ComparisonSummary({ comparison }: ComparisonSummaryProps) {
           Comparison Summary
         </h2>
         <div className="text-sm text-gray-500">
-          Generated {generatedAt.toLocaleString()}
+          <span title={`Generated ${generatedAt.toLocaleString()}`}>
+            Generated {formatRelativeTime(generatedAt)}
+          </span>
         </div>
       </div>
 

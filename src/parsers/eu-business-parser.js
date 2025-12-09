@@ -15,6 +15,36 @@ class EUBusinessParser extends BaseParser {
   }
 
   /**
+   * Detect language from EU invoice text
+   * @param {string} text - Invoice text
+   * @returns {string} - Language code (de, fr, es, it, en)
+   */
+  detectLanguage(text) {
+    if (!text || typeof text !== 'string') return 'en';
+
+    // Language detection patterns for EU invoices
+    const languagePatterns = {
+      'de': [/amazon\.de/i, /Bestelldatum/i, /Gesamtbetrag/i, /MwSt/i, /Versandkosten/i],
+      'fr': [/amazon\.fr/i, /Date\s+de\s+commande/i, /Total\s+TTC/i, /TVA/i, /Frais\s+de\s+port/i],
+      'es': [/amazon\.es/i, /Fecha\s+de\s+pedido/i, /Total/i, /IVA/i, /Gastos\s+de\s+envío/i],
+      'it': [/amazon\.it/i, /Data\s+dell'ordine/i, /Totale/i, /IVA/i, /Costi\s+di\s+spedizione/i],
+      'en': [/amazon\.co\.uk/i, /Order\s+Date/i, /Total/i, /VAT/i, /Delivery/i]
+    };
+
+    // Score each language
+    const scores = {};
+    for (const [lang, patterns] of Object.entries(languagePatterns)) {
+      scores[lang] = patterns.reduce((score, pattern) => {
+        return score + (pattern.test(text) ? 1 : 0);
+      }, 0);
+    }
+
+    // Return language with highest score
+    const bestLang = Object.entries(scores).reduce((a, b) => scores[a[0]] > scores[b[0]] ? a : b);
+    return bestLang[1] > 0 ? bestLang[0] : 'en';
+  }
+
+  /**
    * Main extraction method for EU business invoices
    * @param {string} text - Preprocessed EU business invoice text
    * @param {Object} options - Extraction options
@@ -31,7 +61,7 @@ class EUBusinessParser extends BaseParser {
         orderNumber: this.extractOrderNumber(text),
         orderDate: this.extractOrderDate(text),
         items,
-        subtotal: this.extractSubtotal(text) || this.calculateSubtotalFromItems(items),
+        subtotal: this.extractSubtotal(text) || this.calculateSubtotalFromItems(items) || this.calculateSubtotalFromTotal(text),
         shipping: this.extractShipping(text),
         tax: this.extractTax(text),
         discount: this.extractDiscount(text),
@@ -123,12 +153,17 @@ class EUBusinessParser extends BaseParser {
   extractOrderDate(text) {
     if (!text || typeof text !== 'string') return null;
 
+    // Detect language for proper date normalization
+    const language = this.detectLanguage(text);
+
     // Universal EU business date patterns for all languages
     const datePatterns = [
-      // German
-      /Bestelldatum[:\s]*([\d./-]+)/i,
-      /Rechnungsdatum[:\s]*([\d./-]+)/i,
-      /Datum[:\s]*([\d./-]+)/i,
+      // German - same patterns as consumer parser
+      /Bestelldatum(\d+\s+\w+\s+\d+)/i,  // "Bestelldatum29 November 2025" (most specific)
+      /Bestelldatum([\d.\/-]+)/i,         // "Bestelldatum24.08.2025" (concatenated)
+      /Bestelldatum[:\s]*([\d.\/-]+)/i,  // "Bestelldatum: 28.11.2025" (fallback)
+      /Rechnungsdatum[:\s]*([\d.\/-]+)/i,
+      /Datum[:\s]*([\d.\/-]+)/i,
       // Spanish
       /Fecha\s+de\s+pedido[:\s]*([\d./-]+)/i,
       /Fecha\s+de\s+compra[:\s]*([\d./-]+)/i,
@@ -149,7 +184,7 @@ class EUBusinessParser extends BaseParser {
     for (const pattern of datePatterns) {
       const match = text.match(pattern);
       if (match) {
-        return DateNormalizer.normalize(match[1]);
+        return DateNormalizer.normalize(match[1], language);
       }
     }
 
@@ -838,21 +873,24 @@ class EUBusinessParser extends BaseParser {
     // Universal EU business subtotal patterns
     const subtotalPatterns = [
       // German
-      /Zwischensumme[:\s]*(\d+,\d{2})\s*€/i,
-      /Teilsumme[:\s]*(\d+,\d{2})\s*€/i,
-      /Nettobetrag[:\s]*(\d+,\d{2})\s*€/i,
+      /Zwischensumme[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Teilsumme[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Nettobetrag[:\s]*([\d.]+,\d{2})\s*€/i,
+      // Extract from tax summary: "USt. Gesamt1.588,22 €0,00 €" (subtotal without tax)
+      /USt\. Gesamt([\d.]+,\d{2})\s*€/i,
+      /USt\. Gesamt\s*[\d.]+,\d{2}\s*€([\d.]+,\d{2})\s*€/i,
       // Spanish
-      /Subtotal[:\s]*(\d+,\d{2})\s*€/i,
-      /Base\s+imponible[:\s]*(\d+,\d{2})\s*€/i,
+      /Subtotal[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Base\s+imponible[:\s]*([\d.]+,\d{2})\s*€/i,
       // French
-      /Sous-total[:\s]*(\d+,\d{2})\s*€/i,
-      /Total\s+HT[:\s]*(\d+,\d{2})\s*€/i,
+      /Sous-total[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Total\s+HT[:\s]*([\d.]+,\d{2})\s*€/i,
       // Italian
-      /Subtotale[:\s]*(\d+,\d{2})\s*€/i,
-      /Totale\s+imponibile[:\s]*(\d+,\d{2})\s*€/i,
+      /Subtotale[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Totale\s+imponibile[:\s]*([\d.]+,\d{2})\s*€/i,
       // English
-      /Subtotal[:\s]*(\d+,\d{2})\s*€/i,
-      /Net\s+amount[:\s]*(\d+,\d{2})\s*€/i,
+      /Subtotal[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Net\s+amount[:\s]*([\d.]+,\d{2})\s*€/i,
     ];
 
     for (const pattern of subtotalPatterns) {
@@ -860,6 +898,38 @@ class EUBusinessParser extends BaseParser {
       if (match) {
         return match[1] + ' €';
       }
+    }
+
+    return null;
+  }
+
+  /**
+   * Calculate subtotal from total - tax - shipping (fallback method)
+   * @param {string} text - Invoice text
+   * @returns {string|null} - Calculated subtotal or null
+   */
+  calculateSubtotalFromTotal(text) {
+    const total = this.extractTotal(text);
+    const tax = this.extractTax(text);
+    const shipping = this.extractShipping(text) || '0 €';
+
+    if (!total) return null;
+
+    try {
+      const totalValue = this.extractNumericValue(total);
+      const taxValue = tax ? this.extractNumericValue(tax) : 0;
+      const shippingValue = this.extractNumericValue(shipping);
+
+      if (!isNaN(totalValue) && !isNaN(taxValue) && !isNaN(shippingValue)) {
+        const subtotalValue = totalValue - taxValue - shippingValue;
+
+        // Validate the calculation makes sense (subtotal should be positive and reasonable)
+        if (subtotalValue > 0 && subtotalValue <= totalValue) {
+          return subtotalValue.toFixed(2).replace('.', ',') + ' €';
+        }
+      }
+    } catch (error) {
+      console.warn('Subtotal calculation failed:', error.message);
     }
 
     return null;
@@ -914,21 +984,23 @@ class EUBusinessParser extends BaseParser {
     // Universal EU business tax patterns
     const taxPatterns = [
       // German
-      /MwSt[:\s]*(\d+,\d{2})\s*€/i,
-      /Mehrwertsteuer[:\s]*(\d+,\d{2})\s*€/i,
-      /Umsatzsteuer[:\s]*(\d+,\d{2})\s*€/i,
+      /MwSt[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Mehrwertsteuer[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Umsatzsteuer[:\s]*([\d.]+,\d{2})\s*€/i,
+      // Extract from tax summary: "USt. Gesamt1.588,22 €0,00 €" (tax amount is second)
+      /USt\. Gesamt[\d.]+,\d{2}\s*€\s*([\d.]+,\d{2})\s*€/i,
       // Spanish
-      /IVA[:\s]*(\d+,\d{2})\s*€/i,
-      /Impuesto\s+sobre\s+el\s+valor\s+añadido[:\s]*(\d+,\d{2})\s*€/i,
+      /IVA[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Impuesto\s+sobre\s+el\s+valor\s+añadido[:\s]*([\d.]+,\d{2})\s*€/i,
       // French
-      /TVA[:\s]*(\d+,\d{2})\s*€/i,
-      /Taxe\s+sur\s+la\s+valeur\s+ajoutée[:\s]*(\d+,\d{2})\s*€/i,
+      /TVA[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Taxe\s+sur\s+la\s+valeur\s+ajoutée[:\s]*([\d.]+,\d{2})\s*€/i,
       // Italian
-      /IVA[:\s]*(\d+,\d{2})\s*€/i,
-      /Imposta\s+sul\s+valore\s+aggiunto[:\s]*(\d+,\d{2})\s*€/i,
+      /IVA[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Imposta\s+sul\s+valore\s+aggiunto[:\s]*([\d.]+,\d{2})\s*€/i,
       // English
-      /VAT[:\s]*(\d+,\d{2})\s*€/i,
-      /Tax[:\s]*(\d+,\d{2})\s*€/i,
+      /VAT[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Tax[:\s]*([\d.]+,\d{2})\s*€/i,
     ];
 
     for (const pattern of taxPatterns) {
@@ -990,24 +1062,25 @@ class EUBusinessParser extends BaseParser {
     // Universal EU business total patterns
     const totalPatterns = [
       // German
-      /Gesamtbetrag[:\s]*(\d+,\d{2})\s*€/i,
-      /Gesamtpreis[:\s]*(\d+,\d{2})\s*€/i,
-      /Gesamtsumme[:\s]*(\d+,\d{2})\s*€/i,
-      /Bruttobetrag[:\s]*(\d+,\d{2})\s*€/i,
-      /Endbetrag[:\s]*(\d+,\d{2})\s*€/i,
+      /Gesamtbetrag[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Gesamtpreis[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Gesamtpreis([\d.]+,\d{2})\s*€/i,  // Concatenated: "Gesamtpreis1.588,22 €"
+      /Gesamtsumme[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Bruttobetrag[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Endbetrag[:\s]*([\d.]+,\d{2})\s*€/i,
       // Spanish
-      /Total[:\s]*(\d+,\d{2})\s*€/i,
-      /Importe\s+total[:\s]*(\d+,\d{2})\s*€/i,
+      /Total[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Importe\s+total[:\s]*([\d.]+,\d{2})\s*€/i,
       // French
-      /Total[:\s]*(\d+,\d{2})\s*€/i,
-      /Montant\s+total[:\s]*(\d+,\d{2})\s*€/i,
-      /Total\s+TTC[:\s]*(\d+,\d{2})\s*€/i,
+      /Total[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Montant\s+total[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Total\s+TTC[:\s]*([\d.]+,\d{2})\s*€/i,
       // Italian
-      /Totale[:\s]*(\d+,\d{2})\s*€/i,
-      /Importo\s+totale[:\s]*(\d+,\d{2})\s*€/i,
+      /Totale[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Importo\s+totale[:\s]*([\d.]+,\d{2})\s*€/i,
       // English
-      /Total[:\s]*(\d+,\d{2})\s*€/i,
-      /Grand\s+total[:\s]*(\d+,\d{2})\s*€/i,
+      /Total[:\s]*([\d.]+,\d{2})\s*€/i,
+      /Grand\s+total[:\s]*([\d.]+,\d{2})\s*€/i,
     ];
 
     for (const pattern of totalPatterns) {

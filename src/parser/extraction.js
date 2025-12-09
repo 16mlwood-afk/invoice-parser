@@ -495,14 +495,14 @@ class Extraction {
       /Totale fattura[^\d]*(€\d+(?:[.,]\d{2})?)/i,
       /Totale[^\d]*(\d+(?:[.,]\d{2})?\s*€)/i,
       /Totale[^\d]*(€\d+(?:[.,]\d{2})?)/i,
+      // French total patterns (more specific, check before generic "Total")
+      /Total TTC[:\s]*(\d+(?:[.,]\d{2})?\s*€)/i,
+      /Total TTC[:\s]*(\d+(?:[.,]\d{2})?\s*Fr)/i,
       // English total patterns
       /Grand Total[:\s]*([$€£¥]\d+(?:[.,]\d{3})*[.,]?\d*)/i,
       /Grand Total[:\s]*(\d+(?:[.,]\d{3})*[.,]?\d*\s*[$€£¥])/i,
       /Total[:\s]*([$€£¥]\d+(?:[.,]\d{3})*[.,]?\d*)/i,
       /Total[:\s]*(\d+(?:[.,]\d{3})*[.,]?\d*\s*[$€£¥])/i,
-      // French total patterns
-      /Total TTC[:\s]*(\d+(?:[.,]\d{2})?\s*€)/i,
-      /Total TTC[:\s]*(\d+(?:[.,]\d{2})?\s*Fr)/i,
       // Fallback patterns for amounts that appear without clear labels (but not in item tables)
       // Only match if not preceded by ASIN or percentage signs
       /(?<!ASIN:\s*)(?<!\d%\s*)(\d{3,}(?:[.,]\d{2})?\s*€)(?![\d%])/g, // Large amounts with € at end (not after ASIN or %)

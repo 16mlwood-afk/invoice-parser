@@ -29,7 +29,8 @@ async function debugItemExtraction(pdfFile) {
     // Classify format and preprocess the text
     console.log('Classifying format...');
     const formatClassification = FormatClassifier.classify(data.text);
-    console.log(`Format: ${formatClassification.format} (${formatClassification.confidence}% confidence)`);
+    console.log(`Format: ${formatClassification.format} ` +
+      `(${formatClassification.confidence}% confidence)`);
 
     console.log('Preprocessing text...');
     const lightProcessed = LightPreprocessor.preprocess(data.text);
@@ -120,13 +121,11 @@ async function debugItemExtraction(pdfFile) {
     // Let's also check what the text looks like around where items should be
     console.log('\n=== TEXT AROUND ITEM SECTIONS ===');
     const lines = finalProcessed.split('\n');
-    let inItemsSection = false;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
 
       if (line.includes('Items Ordered')) {
-        inItemsSection = true;
         console.log(`\n[${i}] FOUND ITEMS SECTION START: "${line}"`);
         // Show next 10 lines
         for (let j = 1; j <= 10 && i + j < lines.length; j++) {

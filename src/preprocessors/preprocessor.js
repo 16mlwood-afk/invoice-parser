@@ -65,7 +65,7 @@ class InvoicePreprocessor {
       'â€': '™',      // trade mark sign
       'â€': '♪',      // eighth note
       'â€': '♫',      // beamed eighth notes
-      'â€': '✓',      // check mark
+      'â€': 'OK',     // check mark (converted to safe text)
       'Ã': 'à',       // a with grave accent (common pattern)
       'Æ': 'Æ',       // AE ligature (keep as is)
       'æ': 'æ',       // ae ligature (keep as is)

@@ -386,12 +386,12 @@ class FrenchParser extends BaseParser {
     const totalPatterns = [
       /Total\s+TTC[:\s]*(\d+(?:[.,]\d{2})?\s*€)/i,
       /Total\s+TTC[:\s]*(€\d+(?:[.,]\d{2})?)/i,
-      /Total[:\s]*(\d+(?:[.,]\d{2})?\s*€)/i,
-      /Total[:\s]*(€\d+(?:[.,]\d{2})?)/i,
+      /(?<!(?:Sous-|Sous\s))Total[:\s]*(\d+(?:[.,]\d{2})?\s*€)/i,
+      /(?<!(?:Sous-|Sous\s))Total[:\s]*(€\d+(?:[.,]\d{2})?)/i,
       /Montant\s+total[:\s]*(\d+(?:[.,]\d{2})?\s*€)/i,
       /Montant\s+total[:\s]*(€\d+(?:[.,]\d{2})?)/i,
-      // Fallback for large amounts
-      /(?<!TVA:\s*)(?<!\d%\s*)(\d{3,}(?:[.,]\d{2})?\s*€)(?![\d%])/g
+      // Fallback for large amounts - ensure it's at the end and looks like a total
+      /(?<!TVA:\s*)(?<!\d%\s*)(?<!Sous-total:\s*)(?<!Livraison:\s*)(?<!\w{1,20}:\s*)(\d{3,}(?:[.,]\d{2})?\s*€)(?![\d%])/g
     ];
 
     for (const pattern of totalPatterns) {

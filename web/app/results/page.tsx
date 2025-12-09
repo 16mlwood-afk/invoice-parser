@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Container, Button, Card, Spinner } from '@/components/ui';
 import { useResultsStore } from '@/stores/results-store';
 import { ProcessingStatus } from '@/types/processing';
+import { formatRelativeTime, formatDuration, groupJobsByTimePeriod, calculateProcessingStats, formatProcessingTime } from '@/utils/time-estimation';
 
 
 export default function ResultsIndexPage() {
@@ -153,6 +154,45 @@ export default function ResultsIndexPage() {
               </div>
             </Card>
 
+            {/* Processing Stats */}
+            {allJobs.length > 0 && (() => {
+              const stats = calculateProcessingStats(allJobs);
+              const completedJobs = allJobs.filter(job => job.status === 'completed');
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  <Card className="p-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-primary">{allJobs.length}</div>
+                      <div className="text-sm text-neutral-600 dark:text-neutral-400">Total Jobs</div>
+                    </div>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">{completedJobs.length}</div>
+                      <div className="text-sm text-neutral-600 dark:text-neutral-400">Completed</div>
+                    </div>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">{stats.totalFilesProcessed}</div>
+                      <div className="text-sm text-neutral-600 dark:text-neutral-400">Files Processed</div>
+                    </div>
+                  </Card>
+                  {stats.avgProcessingTimePerFile > 0 && (
+                    <Card className="p-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-600">
+                          {formatProcessingTime(stats.avgProcessingTimePerFile)}
+                        </div>
+                        <div className="text-sm text-neutral-600 dark:text-neutral-400">Avg per File</div>
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Jobs List - Always show */}
             <div className="space-y-6">
               <div className="flex items-center justify-between">
@@ -204,63 +244,105 @@ export default function ResultsIndexPage() {
                   </div>
                 </Card>
               ) : (
-                /* Jobs List */
-                <div className="grid gap-4">
-                  {allJobs.map((job) => (
-                    <Card key={job.jobId} className="p-6 hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                              Job {job.jobId.slice(-8)}
-                            </h3>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              job.status === 'completed'
-                                ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200'
-                                : job.status === 'failed'
-                                ? 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200'
-                                : job.status === 'processing'
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200'
-                                : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                            }`}>
-                              {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center space-x-6 text-sm text-neutral-600 dark:text-neutral-400">
-                            <span>{job.progress.total} file{job.progress.total !== 1 ? 's' : ''}</span>
-                            <span>Created {job.startedAt.toLocaleDateString()}</span>
-                            {job.completedAt && (
-                              <span>Completed {job.completedAt.toLocaleDateString()}</span>
-                            )}
-                            <span>{job.progress.percentage}% complete</span>
-                          </div>
-
-                          {/* Progress bar */}
-                          <div className="mt-3">
-                            <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
-                              <div
-                                className="bg-primary h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${job.progress.percentage}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex space-x-3 ml-4">
-                          {job.status === 'completed' && (
-                            <Link href={`/results/${job.jobId}`}>
-                              <Button size="sm">View Results</Button>
-                            </Link>
-                          )}
-                          {job.status === 'processing' && (
-                            <Link href={`/dashboard`}>
-                              <Button variant="outline" size="sm">View Progress</Button>
-                            </Link>
-                          )}
-                        </div>
+                /* Grouped Jobs List */
+                <div className="space-y-8">
+                  {Object.entries(groupJobsByTimePeriod(allJobs)).map(([period, jobs]) => (
+                    <div key={period} className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                          {period}
+                        </h3>
+                        <span className="text-sm text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded-full">
+                          {jobs.length} job{jobs.length !== 1 ? 's' : ''}
+                        </span>
                       </div>
-                    </Card>
+
+                      <div className="grid gap-4">
+                        {jobs.map((job) => {
+                          // Calculate job age for visual indicators
+                          const jobAgeHours = (Date.now() - job.startedAt.getTime()) / (1000 * 60 * 60);
+                          const isRecent = jobAgeHours < 24; // Less than 24 hours old
+                          const isVeryRecent = jobAgeHours < 1; // Less than 1 hour old
+
+                          return (
+                            <Card key={job.jobId} className={`p-6 hover:shadow-md transition-all duration-200 ${
+                              isVeryRecent ? 'ring-1 ring-primary/20 bg-primary/5 dark:bg-primary/5' :
+                              isRecent ? 'bg-gradient-to-r from-neutral-50/50 to-transparent dark:from-neutral-800/50 dark:to-transparent' :
+                              ''
+                            }`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-3 mb-2">
+                                    <h4 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                                      Job {job.jobId.slice(-8)}
+                                    </h4>
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                      job.status === 'completed'
+                                        ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200'
+                                        : job.status === 'failed'
+                                        ? 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200'
+                                        : job.status === 'processing'
+                                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200'
+                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                                    }`}>
+                                      {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                                    </span>
+                                    {isVeryRecent && job.status === 'completed' && (
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary">
+                                        New
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center space-x-6 text-sm text-neutral-600 dark:text-neutral-400 mb-3">
+                                    <span>{job.progress.total} file{job.progress.total !== 1 ? 's' : ''}</span>
+                                    <span title={`Created ${job.startedAt.toLocaleString()}`}>
+                                      Created {formatRelativeTime(job.startedAt)}
+                                    </span>
+                                    {job.completedAt && (
+                                      <>
+                                        <span title={`Completed ${job.completedAt.toLocaleString()}`}>
+                                          Completed {formatRelativeTime(job.completedAt)}
+                                        </span>
+                                        <span className="text-neutral-500 dark:text-neutral-500">
+                                          Duration: {formatDuration(job.startedAt, job.completedAt)}
+                                        </span>
+                                      </>
+                                    )}
+                                    <span>{job.progress.percentage}% complete</span>
+                                  </div>
+
+                                  {/* Progress bar */}
+                                  <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
+                                    <div
+                                      className={`h-2 rounded-full transition-all duration-300 ${
+                                        job.status === 'completed' ? 'bg-green-500' :
+                                        job.status === 'failed' ? 'bg-red-500' :
+                                        'bg-primary'
+                                      }`}
+                                      style={{ width: `${job.progress.percentage}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+
+                                <div className="flex space-x-3 ml-4">
+                                  {job.status === 'completed' && (
+                                    <Link href={`/results/${job.jobId}`}>
+                                      <Button size="sm">View Results</Button>
+                                    </Link>
+                                  )}
+                                  {job.status === 'processing' && (
+                                    <Link href={`/dashboard`}>
+                                      <Button variant="outline" size="sm">View Progress</Button>
+                                    </Link>
+                                  )}
+                                </div>
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}

@@ -55,6 +55,9 @@ class ParserFactory {
   static async parseInvoice(rawText, options = {}) {
     const startTime = Date.now();
 
+    // Allow disabling checklist generation for performance-critical scenarios
+    const generateChecklist = options.generateChecklist !== false;
+
     try {
       // Stage 1: Light preprocessing
       const preprocessStart = Date.now();
@@ -138,9 +141,23 @@ class ParserFactory {
         processedTextLength: preprocessedText.length
       };
 
+      // Generate parsing quality checklist (optimized for minimal payload)
+      if (generateChecklist) {
+        const extractionMetadata = {
+          parserUsed: parser ? parser.constructor.name : 'unknown',
+          format: formatClassification?.format,
+          fallbackUsed
+        };
+
+        invoice.parsingQualityChecklist = parser ?
+          parser.generateParsingQualityChecklist(invoice, extractionMetadata) :
+          this.generateBasicChecklist(invoice, extractionMetadata);
+      }
+
       if (options.debug) {
         console.log('✅ Parsing completed with', parser ? parser.constructor.name : 'unknown parser');
         console.log('📊 Performance:', `${totalTime}ms total`);
+        console.log('📋 Parsing Quality Score:', invoice.parsingQualityChecklist?.overall?.score || 'N/A');
       }
 
       return invoice;
@@ -149,6 +166,23 @@ class ParserFactory {
       const totalTime = Date.now() - startTime;
 
       console.error('❌ Parser pipeline failed:', error.message);
+
+      // Generate basic checklist for failed parsing
+      const failedChecklist = {
+        overall: {
+          score: 0,
+          status: 'critical',
+          criticalFieldsMissing: 12,
+          totalFields: 12,
+          extractedFields: 0
+        },
+        fields: {},
+        recommendations: [
+          'Parsing completely failed. Manual data entry required.',
+          'Check file format and try again.',
+          'Contact support if issue persists.'
+        ]
+      };
 
       // Fallback to base parser for error recovery
       try {
@@ -172,13 +206,34 @@ class ParserFactory {
             extractionSuccess: this.calculateExtractionMetrics(partialInvoice)
           };
 
+          // Generate checklist for partial result
+          const extractionMetadata = {
+            parserUsed: 'BaseParser (fallback)',
+            format: classification?.format,
+            fallbackUsed: true,
+            languageDetection: null,
+            preprocessingTime: 0,
+            parsingTime: totalTime,
+            totalTime
+          };
+          partialInvoice.parsingQualityChecklist = fallbackParser.generateParsingQualityChecklist(partialInvoice, extractionMetadata);
+
           return partialInvoice;
         }
       } catch (fallbackError) {
         console.error('❌ Fallback parsing also failed:', fallbackError.message);
       }
 
-      return null;
+      // Return failed result with checklist
+      return {
+        error: error.message,
+        parsingQualityChecklist: failedChecklist,
+        performanceMetrics: {
+          totalProcessingTime: totalTime,
+          failed: true,
+          originalError: error.message
+        }
+      };
     }
   }
 
@@ -531,6 +586,94 @@ class ParserFactory {
     report.errors = failedInvoices.map(inv => inv ? inv.error : 'Unknown error');
 
     return report;
+  }
+
+  /**
+   * Generate basic parsing quality checklist when no parser is available
+   * @param {Object} invoice - Parsed invoice data (may be null)
+   * @param {Object} extractionMetadata - Metadata about extraction attempt
+   * @returns {Object} - Basic parsing quality report
+   */
+  static generateBasicChecklist(invoice, extractionMetadata) {
+    if (!invoice) {
+      return {
+        overall: {
+          score: 0,
+          status: 'critical',
+          criticalFieldsMissing: 12,
+          totalFields: 12,
+          extractedFields: 0
+        },
+        fields: {},
+        recommendations: [
+          'Parsing completely failed. Manual data entry required.',
+          'Check file format and try again.',
+          'Contact support if issue persists.'
+        ]
+      };
+    }
+
+    // For basic checklist, assume minimal parsing was attempted
+    const checklist = {
+      overall: {
+        score: 20,
+        status: 'critical',
+        criticalFieldsMissing: 10,
+        totalFields: 12,
+        extractedFields: 2
+      },
+      fields: {
+        orderNumber: {
+          status: invoice.orderNumber ? 'extracted' : 'missing',
+          confidence: invoice.orderNumber ? 50 : 0,
+          value: invoice.orderNumber || null,
+          critical: true,
+          category: 'order'
+        },
+        orderDate: {
+          status: 'missing',
+          confidence: 0,
+          value: null,
+          critical: true,
+          category: 'order'
+        },
+        items: {
+          status: 'missing',
+          confidence: 0,
+          value: null,
+          critical: true,
+          category: 'items'
+        },
+        subtotal: {
+          status: 'missing',
+          confidence: 0,
+          value: null,
+          critical: true,
+          category: 'financial'
+        },
+        tax: {
+          status: 'missing',
+          confidence: 0,
+          value: null,
+          critical: true,
+          category: 'financial'
+        },
+        total: {
+          status: 'missing',
+          confidence: 0,
+          value: null,
+          critical: true,
+          category: 'financial'
+        }
+      },
+      recommendations: [
+        'Parser failed to extract data. Manual processing recommended.',
+        'Check if this is a supported invoice format.',
+        'Verify PDF quality and text extraction.'
+      ]
+    };
+
+    return checklist;
   }
 }
 

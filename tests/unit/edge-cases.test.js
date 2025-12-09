@@ -293,10 +293,10 @@ describe('AmazonInvoiceParser - Edge Cases and Boundary Conditions', () => {
         ];
 
         testCases.forEach(({ input, expected }) => {
+          console.log(`About to call extractNumericValue on:`, typeof parser.extractNumericValue);
+          console.log(`Parser has method:`, typeof parser.extractNumericValue === 'function');
           const result = parser.extractNumericValue(input);
-          if (result !== expected) {
-            console.log(`Test case failing: "${input}" -> expected: ${expected}, got: ${result}`);
-          }
+          console.log(`Test case: "${input}" -> expected: ${expected}, got: ${result}`);
           expect(result).toBe(expected);
         });
       });

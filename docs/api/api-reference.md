@@ -9,6 +9,7 @@ Complete API documentation for the Amazon Invoice Parser library.
 - [BaseParser](#baseparser)
 - [Language-Specific Parsers](#language-specific-parsers)
 - [CLI Interface](#cli-interface)
+- [Web API](#web-api)
 
 ## ParserFactory
 
@@ -227,6 +228,113 @@ Each parser implements these methods:
 - `AustralianParser` - Australian English (AU)
 - `SwissParser` - Swiss German (CH)
 - `UKParser` - British English (GB)
+
+## Regional Price and VAT Handling
+
+Different Amazon marketplaces have varying VAT/tax structures that affect how prices are displayed and extracted.
+
+### EU Consumer Invoices (amazon.eu consumer)
+
+**Price Structure:** EU consumer invoices display prices with VAT already included (VAT-inclusive).
+
+**Format:**
+```
+Beschreibung | Menge | Stückpreis (ohne USt.) | USt. % | Stückpreis (inkl. USt.) | Zwischensumme (inkl. USt.)
+Product Name | 1     | 149,99 €               | 20%    | 59,99 €                 | 59,99 €
+```
+
+**Extraction Logic:**
+- Extracts **VAT-inclusive prices** (`Stückpreis (inkl. USt.)`)
+- `unitPrice`: €59.99 (VAT-inclusive)
+- `totalPrice`: €59.99 (VAT-inclusive)
+- Currency: EUR
+
+**Validation:** Item totals are validated against invoice subtotal with €1 tolerance.
+
+### EU Business Invoices (amazon.eu business)
+
+**Price Structure:** EU business invoices display ex-VAT prices (net amounts).
+
+**Format:**
+```
+Description | Qty | Unit Price | Tax % | Unit Price | Total
+Product     | 1   | 149.99 €  | 20%  | 179.99 €  | 179.99 €
+```
+
+**Extraction Logic:**
+- Extracts **ex-VAT prices** (appropriate for business invoices)
+- `unitPrice`: €149.99 (ex-VAT)
+- `totalPrice`: €179.99 (inc-VAT)
+- Currency: EUR
+
+### UK Invoices (amazon.co.uk)
+
+**Price Structure:** UK invoices display VAT-inclusive prices.
+
+**Format:**
+```
+1 x Product Name £129.99
+```
+
+**Extraction Logic:**
+- Extracts single price value (VAT-inclusive)
+- `price`: £129.99 (VAT-inclusive)
+- Currency: GBP
+
+### Swiss Invoices (amazon.ch)
+
+**Price Structure:** Swiss invoices display VAT-inclusive prices.
+
+**Format:**
+```
+Product Name CHF 129.99
+```
+
+**Extraction Logic:**
+- Extracts single price value (VAT-inclusive)
+- `price`: CHF 129.99 (VAT-inclusive)
+- Currency: CHF
+
+### Price Validation
+
+All parsers include comprehensive validation:
+
+- **Item-to-Subtotal Validation:** Ensures sum of item prices matches invoice subtotal
+- **Tolerance:** €1.00 for rounding differences
+- **Severity Levels:**
+  - Critical: Discrepancies >10% of subtotal
+  - High: Discrepancies >€1.00
+  - Warning: Minor discrepancies €0.10-€1.00
+
+**Example Validation:**
+```javascript
+// Valid invoice (within tolerance)
+{
+  items: [{ unitPrice: 59.99, quantity: 1 }],
+  subtotal: "59.99 €",
+  validation: {
+    score: 95,
+    isValid: true,
+    errors: [],
+    warnings: []
+  }
+}
+
+// Invalid invoice (critical error)
+{
+  items: [{ unitPrice: 149.99, quantity: 1 }], // Wrong column!
+  subtotal: "59.99 €",
+  validation: {
+    score: 65,
+    isValid: false,
+    errors: [{
+      type: "item_subtotal_mismatch",
+      severity: "critical",
+      message: "Item totals (€149.99) don't match invoice subtotal (€59.99). Difference: €90.00"
+    }]
+  }
+}
+```
 
 ## CLI Interface
 
@@ -725,9 +833,14 @@ Clean up temporary files and job data.
 | 400 | No files uploaded | No PDF files provided in upload request |
 | 400 | Invalid file type | Non-PDF file uploaded |
 | 400 | Invalid job ID | Job ID format is incorrect |
+| 400 | Invalid format | Export format not supported |
+| 400 | Invalid template | PDF template not supported |
 | 404 | Job not found | Specified job does not exist |
+| 404 | No results found | Job completed but no results available |
 | 409 | Job not completed | Attempting to get results for incomplete job |
+| 413 | Limit exceeded | Export exceeds size/quantity limits |
 | 500 | Internal server error | Unexpected server error |
+| 500 | Export failed | Error during export generation |
 
 ### Rate Limiting
 Currently, no rate limiting is implemented. Consider adding rate limiting for production deployment.
@@ -737,8 +850,86 @@ Currently, no rate limiting is implemented. Consider adding rate limiting for pr
 - Maximum 50MB per individual file
 - Maximum 500MB total per batch upload
 
+### Export Limits
+- Maximum 500 invoices per PDF export
+- Maximum 5000 records per export (any format)
+- Warning shown when approaching 80% of limits (4000 records)
+
 ### Data Compatibility
 All API responses maintain compatibility with existing CLI JSON output formats, ensuring seamless integration with existing workflows.
+
+## Web API
+
+The web API provides HTTP endpoints for uploading, processing, and managing invoice parsing jobs.
+
+### Export API
+
+#### GET /api/export/:jobId
+
+Exports job processing results in JSON, CSV, or PDF format.
+
+**Parameters:**
+- `jobId` (string, required): Job ID (must start with "job_")
+- `format` (string, optional): Export format - "json", "csv", or "pdf" (default: "json")
+- `template` (string, optional): PDF template - "summary", "detailed", or "financial" (default: "detailed", PDF only)
+
+**Response Headers:**
+- `Content-Type`: "application/json", "text/csv", or "application/pdf"
+- `Content-Disposition`: "attachment; filename=invoice-results-{jobId}-{timestamp}.{ext}"
+- `x-export-limit-warning` (optional): Warning when approaching export limits
+
+**Success Response (JSON example):**
+```json
+{
+  "jobId": "job_1234567890_abc123",
+  "exportDate": "2025-12-08T18:29:01.424Z",
+  "summary": {
+    "totalFiles": 1,
+    "processedFiles": 1,
+    "failedFiles": 0,
+    "successRate": 100
+  },
+  "results": [
+    {
+      "filename": "invoice.pdf",
+      "orderNumber": "123-4567890-1234567",
+      "orderDate": "2024-01-15",
+      "customerInfo": {
+        "name": "John Doe",
+        "email": "john@example.com"
+      },
+      "items": [
+        {
+          "description": "Product Name",
+          "quantity": 1,
+          "unitPrice": 29.99,
+          "total": 29.99
+        }
+      ],
+      "totals": {
+        "subtotal": 29.99,
+        "shipping": 0,
+        "tax": 2.4,
+        "total": 32.39
+      },
+      "currency": "USD",
+      "validationStatus": "valid",
+      "validationErrors": []
+    }
+  ],
+  "errors": []
+}
+```
+
+**Error Responses:**
+- `400 Invalid job ID`: Job ID format incorrect
+- `400 Invalid format`: Format not supported
+- `400 Invalid template`: PDF template not supported
+- `404 Job not found`: Job does not exist
+- `404 No results found`: Job completed but no results available
+- `409 Job not completed`: Job still processing
+- `413 Limit exceeded`: Export exceeds size limits (details provided)
+- `500 Export failed`: Unexpected error during export
 
 ## Examples
 
@@ -772,5 +963,9 @@ const { job } = await statusResponse.json();
 if (job.status === 'completed') {
   const resultsResponse = await fetch(`/api/results/${jobId}`);
   const { results } = await resultsResponse.json();
+
+  // Export results
+  const exportResponse = await fetch(`/api/export/${jobId}?format=json`);
+  const exportData = await exportResponse.json();
 }
 ```

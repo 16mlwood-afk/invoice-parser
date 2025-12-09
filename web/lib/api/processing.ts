@@ -18,7 +18,10 @@ export class ProcessingApi {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const backendData = await response.json();
+      const responseData = await response.json();
+
+      // Extract job data from response (backend returns { success: true, job: jobData })
+      const backendData = responseData.job;
 
       // Transform backend response to match frontend expected format
       try {
