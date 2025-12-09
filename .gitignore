@@ -106,6 +106,11 @@ Thumbs.db
 # AI debug logs
 .ai/
 
+# BMAD Framework Protection
+# NEVER delete these critical framework files
+!.bmad-core/
+!.bmad-core/**
+
 # Test data and reports
 test-results/
 tests/fixtures/

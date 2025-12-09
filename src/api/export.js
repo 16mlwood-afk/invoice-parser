@@ -324,11 +324,23 @@ module.exports = (app, testProcessingAPI = null) => {
       try {
         jobStatus = processingAPI.getJobStatus(jobId);
       } catch (error) {
-        return res.status(404).json({
-          error: 'Job not found',
-          message: EXPORT_CONFIG.ERRORS.MESSAGES.JOB_NOT_FOUND,
-          errorCode: EXPORT_CONFIG.ERRORS.CODES.JOB_NOT_FOUND
-        });
+        // Check error type based on message content
+        if (error.message && error.message.toLowerCase().includes('not completed')) {
+          return res.status(409).json({
+            error: 'Job not completed',
+            message: EXPORT_CONFIG.ERRORS.MESSAGES.JOB_NOT_COMPLETED,
+            errorCode: EXPORT_CONFIG.ERRORS.CODES.JOB_NOT_COMPLETED
+          });
+        }
+        if (error.message && error.message.toLowerCase().includes('not found')) {
+          return res.status(404).json({
+            error: 'Job not found',
+            message: EXPORT_CONFIG.ERRORS.MESSAGES.JOB_NOT_FOUND,
+            errorCode: EXPORT_CONFIG.ERRORS.CODES.JOB_NOT_FOUND
+          });
+        }
+        // For unexpected errors, re-throw to be caught by outer error handler
+        throw error;
       }
 
       // Check if job is completed
@@ -388,45 +400,43 @@ module.exports = (app, testProcessingAPI = null) => {
           contentType = 'text/csv';
           res.setHeader('Content-Type', contentType);
 
-          const stringifier = stringify({
-            header: true,
-            columns: [
-              'Job ID',
-              'Created Date',
-              'Completed Date',
-              'Total Invoices',
-              'Successful Invoices',
-              'Failed Invoices',
-              'Total Amount',
-              'Total Subtotal',
-              'Total Shipping',
-              'Total Tax',
-              'Total Discount',
-              'Currency',
-              'Success Rate (%)'
-            ]
-          });
+          // Build CSV synchronously for testing compatibility
+          const csvHeaders = [
+            'Job ID',
+            'Created Date',
+            'Completed Date',
+            'Total Invoices',
+            'Successful Invoices',
+            'Failed Invoices',
+            'Total Amount',
+            'Total Subtotal',
+            'Total Shipping',
+            'Total Tax',
+            'Total Discount',
+            'Currency',
+            'Success Rate (%)'
+          ];
+          let csvContent = csvHeaders.join(',') + '\n';
 
-          stringifier.pipe(res);
+          const row = [
+            `"${totalsSummary.jobId}"`,
+            `"${totalsSummary.created ? new Date(totalsSummary.created).toISOString().split('T')[0] : ''}"`,
+            `"${totalsSummary.completed ? new Date(totalsSummary.completed).toISOString().split('T')[0] : ''}"`,
+            totalsSummary.invoiceCount,
+            totalsSummary.successfulInvoices,
+            totalsSummary.failedInvoices,
+            `"${totalsSummary.totals.total ? totalsSummary.totals.total.toFixed(2) : '0.00'}"`,
+            `"${totalsSummary.totals.subtotal ? totalsSummary.totals.subtotal.toFixed(2) : '0.00'}"`,
+            `"${totalsSummary.totals.shipping ? totalsSummary.totals.shipping.toFixed(2) : '0.00'}"`,
+            `"${totalsSummary.totals.tax ? totalsSummary.totals.tax.toFixed(2) : '0.00'}"`,
+            `"${totalsSummary.totals.discount ? totalsSummary.totals.discount.toFixed(2) : '0.00'}"`,
+            `"${totalsSummary.currency || ''}"`,
+            totalsSummary.successRate
+          ];
+          csvContent += row.join(',') + '\n';
 
-          stringifier.write({
-            'Job ID': totalsSummary.jobId,
-            'Created Date': totalsSummary.created ? new Date(totalsSummary.created).toISOString().split('T')[0] : '',
-            'Completed Date': totalsSummary.completed ? new Date(totalsSummary.completed).toISOString().split('T')[0] : '',
-            'Total Invoices': totalsSummary.invoiceCount,
-            'Successful Invoices': totalsSummary.successfulInvoices,
-            'Failed Invoices': totalsSummary.failedInvoices,
-            'Total Amount': totalsSummary.totals.total ? totalsSummary.totals.total.toFixed(2) : '0.00',
-            'Total Subtotal': totalsSummary.totals.subtotal ? totalsSummary.totals.subtotal.toFixed(2) : '0.00',
-            'Total Shipping': totalsSummary.totals.shipping ? totalsSummary.totals.shipping.toFixed(2) : '0.00',
-            'Total Tax': totalsSummary.totals.tax ? totalsSummary.totals.tax.toFixed(2) : '0.00',
-            'Total Discount': totalsSummary.totals.discount ? totalsSummary.totals.discount.toFixed(2) : '0.00',
-            'Currency': totalsSummary.currency || '',
-            'Success Rate (%)': totalsSummary.successRate
-          });
-
-          stringifier.end();
-          return; // Important: exit early since response is handled by stream
+          content = csvContent;
+          break;
 
         default:
           return res.status(400).json({
@@ -452,7 +462,7 @@ module.exports = (app, testProcessingAPI = null) => {
 
       // Return safe error messages to client
       res.status(500).json({
-        error: 'Job totals export failed',
+        error: 'Export failed',
         message: EXPORT_CONFIG.ERRORS.MESSAGES.EXPORT_FAILED,
         errorCode: EXPORT_CONFIG.ERRORS.CODES.EXPORT_ERROR
       });
@@ -582,53 +592,51 @@ module.exports = (app, testProcessingAPI = null) => {
           contentType = 'text/csv';
           res.setHeader('Content-Type', contentType);
 
-          const stringifier = stringify({
-            header: true,
-            columns: EXPORT_CONFIG.BATCH_TOTALS.CSV_HEADERS
-          });
-
-          stringifier.pipe(res);
+          // Build CSV synchronously for testing compatibility
+          let csvContent = EXPORT_CONFIG.BATCH_TOTALS.CSV_HEADERS.join(',') + '\n';
 
           // Write job-level summaries
           batchTotals.jobs.forEach(job => {
-            stringifier.write({
-              'Job ID': job.jobId,
-              'Job Created Date': job.created ? new Date(job.created).toISOString().split('T')[0] : '',
-              'Job Completed Date': job.completed ? new Date(job.completed).toISOString().split('T')[0] : '',
-              'Total Invoices': job.invoiceCount,
-              'Successful Invoices': job.successfulInvoices,
-              'Failed Invoices': job.failedInvoices,
-              'Total Amount': job.totals.total ? job.totals.total.toFixed(2) : '0.00',
-              'Total Subtotal': job.totals.subtotal ? job.totals.subtotal.toFixed(2) : '0.00',
-              'Total Shipping': job.totals.shipping ? job.totals.shipping.toFixed(2) : '0.00',
-              'Total Tax': job.totals.tax ? job.totals.tax.toFixed(2) : '0.00',
-              'Total Discount': job.totals.discount ? job.totals.discount.toFixed(2) : '0.00',
-              'Currency': job.currency || '',
-              'Success Rate (%)': job.successRate
-            });
+            const row = [
+              `"${job.jobId}"`,
+              `"${job.created ? new Date(job.created).toISOString().split('T')[0] : ''}"`,
+              `"${job.completed ? new Date(job.completed).toISOString().split('T')[0] : ''}"`,
+              job.invoiceCount,
+              job.successfulInvoices,
+              job.failedInvoices,
+              `"${job.totals.total ? job.totals.total.toFixed(2) : '0.00'}"`,
+              `"${job.totals.subtotal ? job.totals.subtotal.toFixed(2) : '0.00'}"`,
+              `"${job.totals.shipping ? job.totals.shipping.toFixed(2) : '0.00'}"`,
+              `"${job.totals.tax ? job.totals.tax.toFixed(2) : '0.00'}"`,
+              `"${job.totals.discount ? job.totals.discount.toFixed(2) : '0.00'}"`,
+              `"${job.currency || ''}"`,
+              job.successRate
+            ];
+            csvContent += row.join(',') + '\n';
           });
 
           // Write batch summary row
-          stringifier.write({
-            'Job ID': 'BATCH_TOTAL',
-            'Job Created Date': '',
-            'Job Completed Date': '',
-            'Total Invoices': batchTotals.totalInvoices,
-            'Successful Invoices': batchTotals.successfulInvoices,
-            'Failed Invoices': batchTotals.failedInvoices,
-            'Total Amount': batchTotals.totals.total.toFixed(2),
-            'Total Subtotal': batchTotals.totals.subtotal.toFixed(2),
-            'Total Shipping': batchTotals.totals.shipping.toFixed(2),
-            'Total Tax': batchTotals.totals.tax.toFixed(2),
-            'Total Discount': batchTotals.totals.discount.toFixed(2),
-            'Currency': 'MULTI', // Indicates multiple currencies
-            'Success Rate (%)': batchTotals.totalInvoices > 0
+          const batchRow = [
+            '"BATCH_TOTAL"',
+            '""',
+            '""',
+            batchTotals.totalInvoices,
+            batchTotals.successfulInvoices,
+            batchTotals.failedInvoices,
+            `"${batchTotals.totals.total.toFixed(2)}"`,
+            `"${batchTotals.totals.subtotal.toFixed(2)}"`,
+            `"${batchTotals.totals.shipping.toFixed(2)}"`,
+            `"${batchTotals.totals.tax.toFixed(2)}"`,
+            `"${batchTotals.totals.discount.toFixed(2)}"`,
+            '"MULTI"',
+            batchTotals.totalInvoices > 0
               ? ((batchTotals.successfulInvoices / batchTotals.totalInvoices) * 100).toFixed(1)
               : '0.0'
-          });
+          ];
+          csvContent += batchRow.join(',') + '\n';
 
-          stringifier.end();
-          return; // Important: exit early since response is handled by stream
+          content = csvContent;
+          break;
 
         default:
           return res.status(400).json({

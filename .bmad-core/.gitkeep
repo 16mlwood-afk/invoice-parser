@@ -1,0 +1,4 @@
+# BMAD Framework Protection
+# This directory contains critical BMAD framework files
+# DO NOT DELETE - Required for agent functionality
+# Protected by .gitignore rules

@@ -1,6 +1,6 @@
 {
   "parser": {
-    "defaultRegion": "us",
+    "defaultRegion": "uk",
     "currency": "USD",
     "dateFormat": "MM/DD/YYYY",
     "language": "en",
