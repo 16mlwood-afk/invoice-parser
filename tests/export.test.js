@@ -16,21 +16,45 @@ calculateBatchTotals.mockImplementation((jobStatuses, jobResults) => {
   // Simple mock implementation for testing
   const batchSummary = {
     totalJobs: jobStatuses.length,
-    totalInvoices: 3, // Mock value for tests
-    successfulInvoices: 3,
+    totalInvoices: 0,
+    successfulInvoices: 0,
     failedInvoices: 0,
     jobs: [],
-    totals: { total: 350, subtotal: 315, shipping: 20, tax: 15, discount: 0 },
-    currencies: {
-      USD: { total: 300, subtotal: 270, shipping: 15, tax: 15, discount: 0, invoiceCount: 2 },
-      EUR: { total: 50, subtotal: 45, shipping: 2, tax: 3, discount: 0, invoiceCount: 1 }
-    },
+    totals: { total: 0, subtotal: 0, shipping: 0, tax: 0, discount: 0 },
+    currencies: {},
     exportDate: new Date().toISOString()
   };
 
   jobStatuses.forEach((status, index) => {
     const results = jobResults[index];
     const successfulResults = results.filter(r => r.success);
+
+    // Calculate totals for this job
+    let jobTotal = 0;
+    let jobSubtotal = 0;
+    let jobShipping = 0;
+    let jobTax = 0;
+    let jobDiscount = 0;
+
+    successfulResults.forEach(result => {
+      if (result.data) {
+        jobTotal += result.data.total || 0;
+        jobSubtotal += result.data.subtotal || 0;
+        jobShipping += result.data.shipping || 0;
+        jobTax += result.data.tax || 0;
+        jobDiscount += result.data.discount || 0;
+      }
+    });
+
+    batchSummary.totalInvoices += successfulResults.length;
+    batchSummary.successfulInvoices += successfulResults.length;
+    batchSummary.failedInvoices += status.progress.failed;
+
+    batchSummary.totals.total += jobTotal;
+    batchSummary.totals.subtotal += jobSubtotal;
+    batchSummary.totals.shipping += jobShipping;
+    batchSummary.totals.tax += jobTax;
+    batchSummary.totals.discount += jobDiscount;
 
     batchSummary.jobs.push({
       jobId: status.id,
@@ -42,7 +66,7 @@ calculateBatchTotals.mockImplementation((jobStatuses, jobResults) => {
       successRate: status.progress.total > 0
         ? Math.round((status.progress.successful / status.progress.total) * 100 * 10) / 10
         : 0,
-      totals: { total: 0, subtotal: 0, shipping: 0, tax: 0, discount: 0 },
+      totals: { total: jobTotal, subtotal: jobSubtotal, shipping: jobShipping, tax: jobTax, discount: jobDiscount },
       currency: 'USD'
     });
   });
@@ -891,5 +915,151 @@ describe('Export API', () => {
 
         consoleSpy.mockRestore();
       });
+  });
+
+  describe('GET /api/export/:jobId/totals', () => {
+    const validJobId = 'job_123';
+
+    describe('Request Validation', () => {
+      test('should return 400 for invalid job ID format', async () => {
+        const response = await request(app)
+          .get('/api/export/invalid_job/totals')
+          .query({ format: 'json' });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toBe('Invalid job ID');
+      });
+
+      test('should return 400 for invalid format', async () => {
+        const response = await request(app)
+          .get(`/api/export/${validJobId}/totals`)
+          .query({ format: 'pdf' });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toBe('Invalid format');
+        expect(response.body.errorCode).toBe('INVALID_FORMAT');
+      });
+    });
+
+    describe('Job Status Handling', () => {
+      test('should return 404 when job not found', async () => {
+        mockProcessingAPI.getJobStatus.mockImplementation(() => {
+          throw new Error('Job not found');
+        });
+
+        const response = await request(app)
+          .get(`/api/export/${validJobId}/totals`)
+          .query({ format: 'json' });
+
+        expect(response.status).toBe(404);
+        expect(response.body.errorCode).toBe('JOB_NOT_FOUND');
+      });
+
+      test('should return 409 when job not completed', async () => {
+        mockProcessingAPI.getJobStatus.mockReturnValue({
+          status: 'processing',
+          progress: { total: 1, successful: 0, failed: 0 }
+        });
+
+        const response = await request(app)
+          .get(`/api/export/${validJobId}/totals`)
+          .query({ format: 'json' });
+
+        expect(response.status).toBe(409);
+        expect(response.body.errorCode).toBe('JOB_NOT_COMPLETED');
+      });
+    });
+
+    describe('Successful Export', () => {
+      const mockJobStatus = {
+        id: validJobId,
+        status: 'completed',
+        progress: { total: 2, successful: 2, failed: 0 },
+        created: new Date('2024-01-01'),
+        completed: new Date('2024-01-02')
+      };
+
+      const mockResults = [
+        { success: true, data: { orderNumber: '123', total: 100, subtotal: 90, shipping: 5, tax: 5, currency: 'USD' } },
+        { success: true, data: { orderNumber: '124', total: 200, subtotal: 180, shipping: 10, tax: 10, currency: 'USD' } }
+      ];
+
+      beforeEach(() => {
+        mockProcessingAPI.getJobStatus.mockReturnValue(mockJobStatus);
+        mockProcessingAPI.getJobResults.mockReturnValue(mockResults);
+      });
+
+      test('should successfully export job totals in JSON format', async () => {
+        const response = await request(app)
+          .get(`/api/export/${validJobId}/totals`)
+          .query({ format: 'json' });
+
+        expect(response.status).toBe(200);
+        expect(response.headers['content-type']).toBe('application/json; charset=utf-8');
+        expect(response.headers['content-disposition']).toContain('job-totals-job_123-');
+
+        const data = JSON.parse(response.text);
+        expect(data.jobId).toBe(validJobId);
+        expect(data.invoiceCount).toBe(2);
+        expect(data.successfulInvoices).toBe(2);
+        expect(data.totals.total).toBe(300); // 100 + 200
+        expect(data.totals.subtotal).toBe(270); // 90 + 180
+        expect(data.currency).toBe('USD');
+        expect(data.successRate).toBe(100);
+      });
+
+      test('should successfully export job totals in CSV format', async () => {
+        let csvData = '';
+        const response = await request(app)
+          .get(`/api/export/${validJobId}/totals`)
+          .query({ format: 'csv' })
+          .buffer(true)
+          .parse((res, callback) => {
+            res.on('data', chunk => csvData += chunk.toString());
+            res.on('end', () => callback(null, csvData));
+          });
+
+        expect(response.status).toBe(200);
+        expect(response.headers['content-type']).toBe('text/csv');
+        expect(response.headers['content-disposition']).toContain('job-totals-job_123-');
+        expect(csvData).toContain('Job ID');
+        expect(csvData).toContain('300.00'); // Total amount
+        expect(csvData).toContain('270.00'); // Subtotal
+      });
+    });
+
+    describe('Error Handling', () => {
+      test('should return 404 when no results found', async () => {
+        mockProcessingAPI.getJobStatus.mockReturnValue({
+          status: 'completed',
+          progress: { total: 1, successful: 1, failed: 0 }
+        });
+        mockProcessingAPI.getJobResults.mockReturnValue([]);
+
+        const response = await request(app)
+          .get(`/api/export/${validJobId}/totals`)
+          .query({ format: 'json' });
+
+        expect(response.status).toBe(404);
+        expect(response.body.error).toBe('No results found');
+      });
+
+      test('should handle unexpected errors gracefully', async () => {
+        mockProcessingAPI.getJobStatus.mockImplementation(() => {
+          throw new Error('Unexpected error');
+        });
+
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        const response = await request(app)
+          .get(`/api/export/${validJobId}/totals`)
+          .query({ format: 'json' });
+
+        expect(response.status).toBe(404);
+        expect(response.body.errorCode).toBe('JOB_NOT_FOUND');
+
+        consoleSpy.mockRestore();
+      });
+    });
   });
 });
