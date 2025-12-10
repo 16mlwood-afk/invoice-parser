@@ -346,8 +346,8 @@ export const useProcessingStore = create<ProcessingStore>((set, get) => ({
   get shouldShowJob(): boolean {
     const { jobDisplayInfo, jobStatus } = get();
     // Don't show if removed, or if failed jobs are not in active state
-    if (jobDisplayInfo.displayState === 'removed' as JobDisplayState) return false;
+    if (jobDisplayInfo.displayState === 'removed') return false;
     if (jobStatus?.status === 'failed') return true; // Always show failed jobs
-    return jobDisplayInfo.displayState !== ('removed' as JobDisplayState);
+    return jobDisplayInfo.displayState !== 'removed';
   },
 }));
